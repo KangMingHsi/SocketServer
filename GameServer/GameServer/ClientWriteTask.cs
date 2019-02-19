@@ -10,21 +10,23 @@ namespace GameServer
 	{
 		public event Server.DisconnectHandler DisconnectEvent;
 
-		private readonly byte[] _data = new byte[5000];
+		private byte[] _data = new byte[5000];
 		private int _bytesRead = 0;
 		private bool _isDisconnect = false;
 
 		private TcpClient _tcpClient;
 		private NetworkStream _stream;
-		private StringBuilder _processData;
-
-		public void Begin(TcpClient client, Server.DisconnectHandler handler)
+		
+		public void Begin(TcpClient client, string message)
 		{
 			try
 			{
 				_tcpClient = client;
 				_stream = _tcpClient.GetStream();
-				DisconnectEvent = new Server.DisconnectHandler(handler);
+				
+				_data = System.Text.Encoding.ASCII.GetBytes(message);
+
+				//DisconnectEvent = new Server.DisconnectHandler(handler);
 
 				Write();
 			}
@@ -38,7 +40,6 @@ namespace GameServer
 		private void Write()
 		{
 			Console.WriteLine("Write");
-			Array.Reverse(_data);
 			_stream.BeginWrite(_data, 0, _data.Length, WriteCallback, null);
 		}
 

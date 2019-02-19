@@ -17,16 +17,14 @@ namespace GameServer
 
 		private TcpClient _tcpClient;
 		private NetworkStream _stream;
-		private StringBuilder _processData;
-
+		
 		public void Begin(TcpClient client, Server.DisconnectHandler handler)
 		{
 			try
 			{
 				_tcpClient = client;
 				_stream = _tcpClient.GetStream();
-				_processData = new StringBuilder();
-
+				
 				DisconnectEvent = new Server.DisconnectHandler(handler);
 				
 				Read();
@@ -41,7 +39,7 @@ namespace GameServer
 		private void Read()
 		{
 			// Read in a nonblocking function.
-			while (!_isDisconnect)
+			while (!_isDisconnect && _tcpClient.Connected)
 			{
 				if (_stream.DataAvailable)
 				{
@@ -67,30 +65,22 @@ namespace GameServer
 				}
 				else
 				{
-					_processData.Clear();
-					_processData.Append(System.Text.Encoding.ASCII.GetString(_data, 0, _bytesRead));
-					Console.WriteLine("Get {0}!", _processData.ToString());
+					string message = System.Text.Encoding.ASCII.GetString(_data, 0, _bytesRead);
+					Console.WriteLine("Get Message {0} from {1} client!", message, _tcpClient.GetHashCode());
 					_bytesRead = 0;
 
-					if (string.Compare(_processData.ToString(), "Goodbye") == 0)
+					// TODO Handle Message we got
+					if (string.Compare(message, "Goodbye") == 0)
 					{
 						_isDisconnect = true;
 					}
 
-					//ThreadPool.QueueUserWorkItem(ClientWriteBegin, _tcpClient);
 				}
 			}
 			catch (Exception ex)
 			{
 				ProcessException(ex);
 			}
-		}
-
-		private void ClientWriteBegin(object client)
-		{
-			ClientWriteTask task = new ClientWriteTask();
-			task.Begin(client as TcpClient, DisconnectEvent);
-			//Console.WriteLine("Remain Connections: {0}", _curClient.ToString());
 		}
 
 		private void Cleanup()

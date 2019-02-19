@@ -20,7 +20,9 @@ namespace GameServer
 		private TcpListener _tcpListener;
 		private List<TcpClient> _tcpClients;
 
-		private Boolean _isFinish = false;
+		private bool _isFinish = false;
+		private int _port;
+		private IPAddress _iPAddress;
 
 		public Server(string ip, int port)
 		{
@@ -28,22 +30,42 @@ namespace GameServer
 			_data = new StringBuilder();
 			_tcpClients = new List<TcpClient>();
 
-			IPAddress iPAddress = IPAddress.Parse(ip);
+			_port = port;
+			_iPAddress = IPAddress.Parse(ip);
+		}
 
+		~Server()
+		{
+			Shutdown();
+			_tcpListener.Stop();
+			_tcpClients.Clear();
+		}
+
+		public void Run()
+		{
 			try
 			{
-				ThreadPool.SetMinThreads(MaxClient*2, MaxClient*2); // TODO 參數化數字
-				_tcpListener = new TcpListener(iPAddress, port);
+				ThreadPool.SetMinThreads(MaxClient * 2, MaxClient * 2);
+
+				_tcpListener = new TcpListener(_iPAddress, _port);
 				_tcpListener.Start();
-				Console.WriteLine(@"Use port {0} connect to {1}", port.ToString(), ip);
+				Console.WriteLine(@"Use port {0} connect to {1}", _port.ToString(), _iPAddress.ToString());
+
+				ThreadPool.QueueUserWorkItem(ServerCommandHandle, null);
+
 				while (!_isFinish)
 				{
-					TcpClient client = _tcpListener.AcceptTcpClient();
-					_tcpClients.Add(client);
+					if (_tcpListener.Pending())
+					{
+						TcpClient client = _tcpListener.AcceptTcpClient();
+						_tcpClients.Add(client);
+						Console.WriteLine("Total Connected Client: {0}", _tcpClients.Count.ToString());
 
-					Console.WriteLine("Total Connected Client: {0}", _tcpClients.Count.ToString());
-					ThreadPool.QueueUserWorkItem(ClientReadBegin, client);
+						ThreadPool.QueueUserWorkItem(ClientReadBegin, client);
+					}
 				}
+
+				//Shutdown();
 			}
 			catch (Exception e)
 			{
@@ -51,11 +73,6 @@ namespace GameServer
 			}
 		}
 
-		~Server()
-		{
-			_tcpListener.Stop();
-			_tcpClients.Clear();
-		}
 
 		public void DisconnectEvent(TcpClient client)
 		{
@@ -69,7 +86,77 @@ namespace GameServer
 		{
 			ClientReadTask task = new ClientReadTask();
 			task.Begin(client as TcpClient, DisconnectEvent);
+		}
+
+		private void ServerCommandHandle(object obj)
+		{
+			while (!_isFinish)
+			{
+				if (Console.KeyAvailable)
+				{
+					var key = Console.ReadKey().Key;
+
+					switch (key)
+					{
+						case ConsoleKey.Q:
+							_isFinish = true;
+							Broadcast("Bye");
+							break;
+						case ConsoleKey.H:
+							Broadcast("Hi");
+							break;
+						default:
+							break;
+					}
+				}
+			}
+		}
+
+		private void Shutdown()
+		{
+			_tcpListener.Stop();
+
+			foreach (var client in _tcpClients)
+			{
+				client.Close();
+			}
+
+		}
+
+		private void Broadcast(string message)
+		{
+			foreach (var client in _tcpClients)
+			{
+				SendMessage(client, message);
+			}
+		}
+
+		private void SendMessage(TcpClient client, string message)
+		{
+			ThreadPool.QueueUserWorkItem(ClientWriteBegin, new WrappedClient(client, message));
+		}
+
+		private void ClientWriteBegin(object wrappedClient)
+		{
+			ClientWriteTask task = new ClientWriteTask();
+			WrappedClient client = wrappedClient as WrappedClient;
+
+			task.Begin(client.TcpClient, client.Message);
 			//Console.WriteLine("Remain Connections: {0}", _curClient.ToString());
 		}
 	}
+
+	internal class WrappedClient
+	{
+		public TcpClient TcpClient;
+		public string Message;
+
+		public WrappedClient(TcpClient client, string message)
+		{
+			TcpClient = client;
+			Message = message;
+		}
+	}
 }
+
+

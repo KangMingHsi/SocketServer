@@ -17,6 +17,8 @@ namespace BotClient
 		{
 			List<Client> clients = new List<Client>();
 
+			ThreadPool.SetMinThreads(clientNum * 2, clientNum * 2);
+
 			for (int i = 0; i < clientNum; ++i)
 			{
 				clients.Add(new Client("127.0.0.1", 36000));
@@ -27,15 +29,15 @@ namespace BotClient
 				clients[i].Connect();
 			}
 
-			Thread.Sleep(5000);
+			//Thread.Sleep(5000);
 
-			for (int i = 0; i < clientNum; ++i)
-			{
-				clients[i].Close();
-				//Thread.Sleep(100);
-			}
+			//for (int i = 0; i < clientNum; ++i)
+			//{
+			//	clients[i].Close();
+			//	//Thread.Sleep(100);
+			//}
 
-			clients.Clear();
+			//clients.Clear();
 		}
     }
 }
