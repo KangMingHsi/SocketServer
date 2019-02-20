@@ -9,13 +9,10 @@ namespace GameServer
 {
 	class Server
 	{
-		public delegate void DisconnectHandler(TcpClient client);
+		public delegate void MessageHandler(ClientTask client, byte[] message);
 
 		private readonly int BufferSize = 1024;
 		private readonly int MaxClient = 100;
-
-		private Byte[] _buffer;
-		private StringBuilder _data;
 
 		private TcpListener _tcpListener;
 		private List<TcpClient> _tcpClients;
@@ -26,8 +23,6 @@ namespace GameServer
 
 		public Server(string ip, int port)
 		{
-			_buffer = new byte[BufferSize];
-			_data = new StringBuilder();
 			_tcpClients = new List<TcpClient>();
 
 			_port = port;
@@ -37,22 +32,70 @@ namespace GameServer
 		~Server()
 		{
 			Shutdown();
-			_tcpListener.Stop();
-			_tcpClients.Clear();
 		}
 
 		public void Run()
 		{
 			try
 			{
-				ThreadPool.SetMinThreads(MaxClient * 2, MaxClient * 2);
-
 				_tcpListener = new TcpListener(_iPAddress, _port);
 				_tcpListener.Start();
-				Console.WriteLine(@"Use port {0} connect to {1}", _port.ToString(), _iPAddress.ToString());
+				Console.WriteLine(@"Server is on and binds to {0}", _port.ToString());
 
+				ThreadPool.SetMinThreads(MaxClient * 2, MaxClient * 2);
 				ThreadPool.QueueUserWorkItem(ServerCommandHandle, null);
 
+				ListenToClient();
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine(e.StackTrace.ToString());
+			}
+		}
+
+		public void MessageHandle(ClientTask client, byte[] message)
+		{
+			MessageBuffer messageBuffer = new MessageBuffer(message);
+			int messageType = messageBuffer.ReadInt();
+			TcpClient tcpClient = client.GetTcpClient();
+
+			switch (messageType)
+			{
+				case Message.Disconnect:
+					// TODO save data to database
+					_tcpClients.Remove(tcpClient);
+					client.Stop();
+					break;
+				case Message.SignIn:
+
+					// TODO Refactorize and link to database
+					string usrname = messageBuffer.ReadString();
+					string password = messageBuffer.ReadString();
+
+					byte[] response = new byte[10];
+					messageBuffer.Reset(response);
+
+					if (usrname.Equals("seankang") && password.Equals("123456"))
+					{
+						messageBuffer.WriteInt(Message.SignInSuccess);
+					}
+					else
+					{
+						messageBuffer.WriteInt(Message.SignInFail);
+					}
+
+					SendMessage(tcpClient, messageBuffer.Buffer);
+					break;
+				default:
+					break;
+			}
+
+		}
+
+		private void ListenToClient()
+		{
+			try
+			{
 				while (!_isFinish)
 				{
 					if (_tcpListener.Pending())
@@ -64,30 +107,21 @@ namespace GameServer
 						ThreadPool.QueueUserWorkItem(ClientReadBegin, client);
 					}
 				}
-
-				//Shutdown();
 			}
 			catch (Exception e)
 			{
 				Console.WriteLine(e.StackTrace.ToString());
+				throw;
 			}
-		}
-
-
-		public void DisconnectEvent(TcpClient client)
-		{
-			Console.WriteLine("Disconnect");
-			_tcpClients.Remove(client);
-
-			Console.WriteLine("Total Connected Client: {0}", _tcpClients.Count.ToString());
 		}
 
 		private void ClientReadBegin(object client)
 		{
-			ClientReadTask task = new ClientReadTask();
-			task.Begin(client as TcpClient, DisconnectEvent);
+			ClientReadTask task = new ClientReadTask(client as TcpClient, MessageHandle);
+			task.Begin();
 		}
 
+		// TODO 
 		private void ServerCommandHandle(object obj)
 		{
 			while (!_isFinish)
@@ -96,14 +130,21 @@ namespace GameServer
 				{
 					var key = Console.ReadKey().Key;
 
+					byte[] message = new byte[10];
+					MessageBuffer messageBuffer = new MessageBuffer(message);
+
 					switch (key)
 					{
 						case ConsoleKey.Q:
+							messageBuffer.WriteInt(Message.Disconnect);
+							Broadcast(messageBuffer.Buffer);
+
 							_isFinish = true;
-							Broadcast("Bye");
 							break;
 						case ConsoleKey.H:
-							Broadcast("Hi");
+
+							messageBuffer.WriteInt(Message.NoMeaning);
+							Broadcast(messageBuffer.Buffer);
 							break;
 						default:
 							break;
@@ -121,9 +162,10 @@ namespace GameServer
 				client.Close();
 			}
 
+			_tcpClients.Clear();
 		}
 
-		private void Broadcast(string message)
+		private void Broadcast(byte[] message)
 		{
 			foreach (var client in _tcpClients)
 			{
@@ -131,27 +173,26 @@ namespace GameServer
 			}
 		}
 
-		private void SendMessage(TcpClient client, string message)
+		private void SendMessage(TcpClient client, byte[] message)
 		{
 			ThreadPool.QueueUserWorkItem(ClientWriteBegin, new WrappedClient(client, message));
 		}
 
 		private void ClientWriteBegin(object wrappedClient)
 		{
-			ClientWriteTask task = new ClientWriteTask();
 			WrappedClient client = wrappedClient as WrappedClient;
-
-			task.Begin(client.TcpClient, client.Message);
-			//Console.WriteLine("Remain Connections: {0}", _curClient.ToString());
+			ClientWriteTask task = new ClientWriteTask(client.TcpClient, client.Message, MessageHandle);
+	
+			task.Begin();
 		}
 	}
 
 	internal class WrappedClient
 	{
 		public TcpClient TcpClient;
-		public string Message;
+		public byte[] Message;
 
-		public WrappedClient(TcpClient client, string message)
+		public WrappedClient(TcpClient client, byte[] message)
 		{
 			TcpClient = client;
 			Message = message;

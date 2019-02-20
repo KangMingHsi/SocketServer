@@ -7,50 +7,63 @@ using System.Threading;
 
 namespace GameServer
 {
-	class ClientReadTask
+	class ClientReadTask : ClientTask
 	{
-		public event Server.DisconnectHandler DisconnectEvent;
+		private event Server.MessageHandler _messageHandler;
 
-		private readonly byte[] _data = new byte[5000];
+		private readonly byte[] _data = new byte[1024];
 		private int _bytesRead = 0;
 		private bool _isDisconnect = false;
 
 		private TcpClient _tcpClient;
 		private NetworkStream _stream;
-		
-		public void Begin(TcpClient client, Server.DisconnectHandler handler)
+
+		public ClientReadTask(TcpClient client, Server.MessageHandler handler)
+		{
+			_tcpClient = client;
+			_stream = _tcpClient.GetStream();
+			_messageHandler = new Server.MessageHandler(handler);
+		}
+
+		~ClientReadTask()
+		{
+			Cleanup();
+		}
+
+		public TcpClient GetTcpClient()
+		{
+			return _tcpClient;
+		}
+
+		public void Stop()
+		{
+			_isDisconnect = true;
+			Cleanup();
+		}
+
+		public void Begin()
 		{
 			try
 			{
-				_tcpClient = client;
-				_stream = _tcpClient.GetStream();
-				
-				DisconnectEvent = new Server.DisconnectHandler(handler);
-				
 				Read();
 			}
 			catch (Exception e)
 			{
 				Console.WriteLine(e.StackTrace.ToString());
 			}
-			
 		}
 
 		private void Read()
 		{
 			// Read in a nonblocking function.
-			while (!_isDisconnect && _tcpClient.Connected)
+			while (!_isDisconnect)
 			{
 				if (_stream.DataAvailable)
 				{
 					IAsyncResult r = _stream.BeginRead(_data, _bytesRead, _data.Length - _bytesRead, ReadCallback, null);
 				}
 			}
-			
-			DisconnectEvent(_tcpClient);
-			Cleanup();
 		}
-
 
 		private void ReadCallback(IAsyncResult r)
 		{
@@ -65,16 +78,8 @@ namespace GameServer
 				}
 				else
 				{
-					string message = System.Text.Encoding.ASCII.GetString(_data, 0, _bytesRead);
-					Console.WriteLine("Get Message {0} from {1} client!", message, _tcpClient.GetHashCode());
 					_bytesRead = 0;
-
-					// TODO Handle Message we got
-					if (string.Compare(message, "Goodbye") == 0)
-					{
-						_isDisconnect = true;
-					}
-
+					_messageHandler(this, _data);
 				}
 			}
 			catch (Exception ex)
@@ -99,6 +104,9 @@ namespace GameServer
 		private void ProcessException(Exception ex)
 		{
 			Cleanup();
+
+			// TODO define error code;
+			_messageHandler(this, null);
 			Console.WriteLine("Error: " + ex.Message);
 		}
 	}

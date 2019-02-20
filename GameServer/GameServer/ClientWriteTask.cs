@@ -6,28 +6,43 @@ using System.Threading;
 
 namespace GameServer
 {
-	class ClientWriteTask
+	class ClientWriteTask : ClientTask
 	{
-		public event Server.DisconnectHandler DisconnectEvent;
+		// TODO check whether this handler is necessary
+		private event Server.MessageHandler _messageHandler;
 
-		private byte[] _data = new byte[5000];
-		private int _bytesRead = 0;
-		private bool _isDisconnect = false;
+		private byte[] _data;
 
 		private TcpClient _tcpClient;
 		private NetworkStream _stream;
-		
-		public void Begin(TcpClient client, string message)
+
+		public ClientWriteTask(TcpClient client, byte[] message, Server.MessageHandler handler)
+		{
+			_tcpClient = client;
+			_stream = _tcpClient.GetStream();
+			_messageHandler = new Server.MessageHandler(handler);
+			_data = message;
+		}
+
+		~ClientWriteTask()
+		{
+			Cleanup();
+		}
+
+		public TcpClient GetTcpClient()
+		{
+			return _tcpClient;
+		}
+
+		public void Stop()
+		{
+			Cleanup();
+		}
+
+		public void Begin()
 		{
 			try
 			{
-				_tcpClient = client;
-				_stream = _tcpClient.GetStream();
-				
-				_data = System.Text.Encoding.ASCII.GetBytes(message);
-
-				//DisconnectEvent = new Server.DisconnectHandler(handler);
-
 				Write();
 			}
 			catch (Exception e)
@@ -39,7 +54,6 @@ namespace GameServer
 
 		private void Write()
 		{
-			Console.WriteLine("Write");
 			_stream.BeginWrite(_data, 0, _data.Length, WriteCallback, null);
 		}
 
@@ -53,8 +67,6 @@ namespace GameServer
 			{
 				ProcessException(ex);
 			}
-
-			Cleanup();
 		}
 
 		private void Cleanup()
