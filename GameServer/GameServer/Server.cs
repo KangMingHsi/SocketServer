@@ -1,21 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+
+using GameCommon;
 
 namespace GameServer
 {
 	class Server
 	{
-		public delegate void MessageHandler(ClientTask client, byte[] message);
-
-		private readonly int BufferSize = 1024;
 		private readonly int MaxClient = 100;
 
 		private TcpListener _tcpListener;
-		private List<TcpClient> _tcpClients;
+		private List<CustomClient> _clients;
 
 		private bool _isFinish = false;
 		private int _port;
@@ -23,7 +21,7 @@ namespace GameServer
 
 		public Server(string ip, int port)
 		{
-			_tcpClients = new List<TcpClient>();
+			_clients = new List<CustomClient>();
 
 			_port = port;
 			_iPAddress = IPAddress.Parse(ip);
@@ -40,7 +38,7 @@ namespace GameServer
 			{
 				_tcpListener = new TcpListener(_iPAddress, _port);
 				_tcpListener.Start();
-				Console.WriteLine(@"Server is on and binds to {0}", _port.ToString());
+				Console.WriteLine(@"Server is on and binds to port {0}", _port.ToString());
 
 				ThreadPool.SetMinThreads(MaxClient * 2, MaxClient * 2);
 				ThreadPool.QueueUserWorkItem(ServerCommandHandle, null);
@@ -53,17 +51,16 @@ namespace GameServer
 			}
 		}
 
-		public void MessageHandle(ClientTask client, byte[] message)
+		public void MessageHandle(CustomClient client, byte[] message)
 		{
 			MessageBuffer messageBuffer = new MessageBuffer(message);
 			int messageType = messageBuffer.ReadInt();
-			TcpClient tcpClient = client.GetTcpClient();
 
 			switch (messageType)
 			{
 				case Message.Disconnect:
 					// TODO save data to database
-					_tcpClients.Remove(tcpClient);
+					_clients.Remove(client);
 					client.Stop();
 					break;
 				case Message.SignIn:
@@ -84,7 +81,7 @@ namespace GameServer
 						messageBuffer.WriteInt(Message.SignInFail);
 					}
 
-					SendMessage(tcpClient, messageBuffer.Buffer);
+					SendMessage(client, messageBuffer.Buffer);
 					break;
 				default:
 					break;
@@ -100,11 +97,10 @@ namespace GameServer
 				{
 					if (_tcpListener.Pending())
 					{
-						TcpClient client = _tcpListener.AcceptTcpClient();
-						_tcpClients.Add(client);
-						Console.WriteLine("Total Connected Client: {0}", _tcpClients.Count.ToString());
-
-						ThreadPool.QueueUserWorkItem(ClientReadBegin, client);
+						TcpClient tcpClient = _tcpListener.AcceptTcpClient();
+						CustomClient client = new CustomClient(tcpClient, MessageHandle);
+						_clients.Add(client);
+						Console.WriteLine("Total Connected Client: {0}", _clients.Count.ToString());
 					}
 				}
 			}
@@ -113,12 +109,6 @@ namespace GameServer
 				Console.WriteLine(e.StackTrace.ToString());
 				throw;
 			}
-		}
-
-		private void ClientReadBegin(object client)
-		{
-			ClientReadTask task = new ClientReadTask(client as TcpClient, MessageHandle);
-			task.Begin();
 		}
 
 		// TODO 
@@ -157,45 +147,25 @@ namespace GameServer
 		{
 			_tcpListener.Stop();
 
-			foreach (var client in _tcpClients)
+			foreach (var client in _clients)
 			{
-				client.Close();
+				client.Stop();
 			}
 
-			_tcpClients.Clear();
+			_clients.Clear();
 		}
 
 		private void Broadcast(byte[] message)
 		{
-			foreach (var client in _tcpClients)
+			foreach (var client in _clients)
 			{
 				SendMessage(client, message);
 			}
 		}
 
-		private void SendMessage(TcpClient client, byte[] message)
+		private void SendMessage(CustomClient client, byte[] message)
 		{
-			ThreadPool.QueueUserWorkItem(ClientWriteBegin, new WrappedClient(client, message));
-		}
-
-		private void ClientWriteBegin(object wrappedClient)
-		{
-			WrappedClient client = wrappedClient as WrappedClient;
-			ClientWriteTask task = new ClientWriteTask(client.TcpClient, client.Message, MessageHandle);
-	
-			task.Begin();
-		}
-	}
-
-	internal class WrappedClient
-	{
-		public TcpClient TcpClient;
-		public byte[] Message;
-
-		public WrappedClient(TcpClient client, byte[] message)
-		{
-			TcpClient = client;
-			Message = message;
+			client.Send(message);
 		}
 	}
 }

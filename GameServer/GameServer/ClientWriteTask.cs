@@ -6,40 +6,31 @@ using System.Threading;
 
 namespace GameServer
 {
-	class ClientWriteTask : ClientTask
+	class ClientWriteTask
 	{
 		// TODO check whether this handler is necessary
-		private event Server.MessageHandler _messageHandler;
+		private event CustomClient.MessageHandler _messageHandler;
 
 		private byte[] _data;
 
-		private TcpClient _tcpClient;
+		private CustomClient _client;
 		private NetworkStream _stream;
 
-		public ClientWriteTask(TcpClient client, byte[] message, Server.MessageHandler handler)
+		public ClientWriteTask(CustomClient client, CustomClient.MessageHandler handler)
 		{
-			_tcpClient = client;
-			_stream = _tcpClient.GetStream();
-			_messageHandler = new Server.MessageHandler(handler);
+			_client = client;
+			_stream = _client.Client.GetStream();
+			_messageHandler = new CustomClient.MessageHandler(handler);
+			_data = null;
+		}
+
+		public void Write(byte[] message)
+		{
 			_data = message;
+			Begin();
 		}
 
-		~ClientWriteTask()
-		{
-			Cleanup();
-		}
-
-		public TcpClient GetTcpClient()
-		{
-			return _tcpClient;
-		}
-
-		public void Stop()
-		{
-			Cleanup();
-		}
-
-		public void Begin()
+		private void Begin()
 		{
 			try
 			{
@@ -69,23 +60,11 @@ namespace GameServer
 			}
 		}
 
-		private void Cleanup()
-		{
-			if (_stream != null)
-			{
-				_stream.Close();
-			}
-
-			if (_tcpClient != null)
-			{
-				_tcpClient.Close();
-			}
-		}
-
 		private void ProcessException(Exception ex)
 		{
-			Cleanup();
+			_messageHandler(_client, null);
 			Console.WriteLine("Error: " + ex.Message);
+			_client.Stop();
 		}
 	}
 }
