@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Threading;
 using System.Net.Sockets;
+
+using Serilog;
 
 namespace GameServer
 {
@@ -34,7 +37,7 @@ namespace GameServer
 			}
 			catch (Exception e)
 			{
-				Console.WriteLine(e.StackTrace.ToString());
+				Log.Information(e.StackTrace.ToString());
 			}
 		}
 
@@ -47,6 +50,8 @@ namespace GameServer
 				{
 					IAsyncResult r = _stream.BeginRead(_data, _bytesRead, _data.Length - _bytesRead, ReadCallback, null);
 				}
+
+				Thread.Sleep(1);
 			}
 		}
 
@@ -77,7 +82,7 @@ namespace GameServer
 		{
 			// TODO define error code;
 			_messageHandler(_client, null);
-			Console.WriteLine("Error: " + ex.Message);
+			Log.Information("Error: " + ex.Message);
 			_client.Stop();
 		}
 	}

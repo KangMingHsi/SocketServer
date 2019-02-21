@@ -1,6 +1,6 @@
 ﻿using System;
 using Npgsql;
-
+using Serilog;
 
 namespace GameServer
 {
@@ -8,6 +8,10 @@ namespace GameServer
     {
         static void Main(string[] args)
         {
+			Log.Logger = new LoggerConfiguration()
+						.WriteTo.Console()
+						.CreateLogger();
+
 			Server server = new Server("127.0.0.1", 36000);
 			server.Run();
 
@@ -33,7 +37,7 @@ namespace GameServer
 			//	//using (var cmd = new NpgsqlCommand("SELECT some_field FROM data", conn))
 			//	//using (var reader = cmd.ExecuteReader())
 			//	//	while (reader.Read())
-			//	//		Console.WriteLine(reader.GetString(0));
+			//	//		Log.Information(reader.GetString(0));
 			//}
 		}
 

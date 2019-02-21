@@ -4,7 +4,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
-using GameCommon;
+using Serilog;
+using GameNetwork;
 
 namespace GameServer
 {
@@ -38,7 +39,7 @@ namespace GameServer
 			{
 				_tcpListener = new TcpListener(_iPAddress, _port);
 				_tcpListener.Start();
-				Console.WriteLine(@"Server is on and binds to port {0}", _port.ToString());
+				Log.Information(@"Server is on and binds to port {0}", _port.ToString());
 
 				ThreadPool.SetMinThreads(MaxClient * 2, MaxClient * 2);
 				ThreadPool.QueueUserWorkItem(ServerCommandHandle, null);
@@ -47,7 +48,7 @@ namespace GameServer
 			}
 			catch (Exception e)
 			{
-				Console.WriteLine(e.StackTrace.ToString());
+				Log.Information(e.StackTrace.ToString());
 			}
 		}
 
@@ -61,6 +62,7 @@ namespace GameServer
 				case Message.Disconnect:
 					// TODO save data to database
 					_clients.Remove(client);
+					Log.Information("Total Connected Client: {0}", _clients.Count.ToString());
 					client.Stop();
 					break;
 				case Message.SignIn:
@@ -84,6 +86,7 @@ namespace GameServer
 					SendMessage(client, messageBuffer.Buffer);
 					break;
 				default:
+					Log.Information(messageType.ToString());
 					break;
 			}
 
@@ -100,13 +103,17 @@ namespace GameServer
 						TcpClient tcpClient = _tcpListener.AcceptTcpClient();
 						CustomClient client = new CustomClient(tcpClient, MessageHandle);
 						_clients.Add(client);
-						Console.WriteLine("Total Connected Client: {0}", _clients.Count.ToString());
+						Log.Information("Total Connected Client: {0}", _clients.Count.ToString());
 					}
+
+					Thread.Sleep(1);
 				}
+
+				Shutdown();
 			}
 			catch (Exception e)
 			{
-				Console.WriteLine(e.StackTrace.ToString());
+				Log.Information(e.StackTrace.ToString());
 				throw;
 			}
 		}
@@ -140,6 +147,8 @@ namespace GameServer
 							break;
 					}
 				}
+
+				Thread.Sleep(1);
 			}
 		}
 
@@ -153,6 +162,9 @@ namespace GameServer
 			}
 
 			_clients.Clear();
+
+			Log.Information("Finish!!");
+			Thread.Sleep(1000);
 		}
 
 		private void Broadcast(byte[] message)

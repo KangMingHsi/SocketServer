@@ -1,13 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Net.Sockets;
-using System.Threading;
+
+using Serilog;
 
 namespace GameServer
 {
 	class ClientWriteTask
 	{
+		public bool IsComplete { get { return _isComplete; } }
 		// TODO check whether this handler is necessary
 		private event CustomClient.MessageHandler _messageHandler;
 
@@ -16,17 +16,22 @@ namespace GameServer
 		private CustomClient _client;
 		private NetworkStream _stream;
 
+		private bool _isComplete;
+
 		public ClientWriteTask(CustomClient client, CustomClient.MessageHandler handler)
 		{
 			_client = client;
 			_stream = _client.Client.GetStream();
 			_messageHandler = new CustomClient.MessageHandler(handler);
+
 			_data = null;
+			_isComplete = true;
 		}
 
 		public void Write(byte[] message)
 		{
 			_data = message;
+			_isComplete = false;
 			Begin();
 		}
 
@@ -38,7 +43,7 @@ namespace GameServer
 			}
 			catch (Exception e)
 			{
-				Console.WriteLine(e.StackTrace.ToString());
+				Log.Information(e.StackTrace.ToString());
 			}
 
 		}
@@ -53,6 +58,7 @@ namespace GameServer
 			try
 			{
 				_stream.EndWrite(r);
+				_isComplete = true;
 			}
 			catch (Exception ex)
 			{
@@ -62,8 +68,8 @@ namespace GameServer
 
 		private void ProcessException(Exception ex)
 		{
-			_messageHandler(_client, null);
-			Console.WriteLine("Error: " + ex.Message);
+			_isComplete = true;
+			Log.Information("Error: " + ex.Message);
 			_client.Stop();
 		}
 	}
