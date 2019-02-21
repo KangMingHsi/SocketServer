@@ -8,7 +8,6 @@ namespace GameServer
 {
 	class DatabaseConnector
 	{
-		
 		private string _connectionString;
 		// config sequence: ip, port, id, password, db
 		public DatabaseConnector(string[] config)

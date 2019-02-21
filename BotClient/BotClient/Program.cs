@@ -15,8 +15,23 @@ namespace BotClient
 						.WriteTo.Console()
 						.CreateLogger();
 
-			//TestMaxClient(100);
 
+			RPSGame game = new RPSGame();
+
+			game.AddPlayer(new ClientPlayer());
+			game.AddPlayer(new ClientPlayer());
+
+			game.GameLoop();
+
+			Thread.Sleep(1000);
+
+			game.AddPlayer(new ClientPlayer());
+			game.AddPlayer(new ClientPlayer());
+
+			game.GameLoop();
+
+			//TestMaxClient(100);
+			Thread.Sleep(1000);
 		}
 
 		static void TestMaxClient(int clientNum)

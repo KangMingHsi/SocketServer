@@ -61,9 +61,6 @@ namespace BotClient
 				_writeTask = new ClientWriteTask(this, HandleMessage);
 				ConnectCnt++;
 
-				Log.Information("連線成功!");
-				Log.Information("Current Connect Client: {0}", ConnectCnt.ToString());
-
 				ThreadPool.QueueUserWorkItem(StartReadTask, _tcpClient);
 			}
 			else
@@ -91,7 +88,7 @@ namespace BotClient
 
 			try
 			{
-				messageBuffer.WriteInt(Message.Disconnect);
+				messageBuffer.WriteInt((int)Message.Disconnect);
 				Send(messageBuffer.Buffer);
 			}
 			catch (Exception e)
@@ -126,15 +123,17 @@ namespace BotClient
 			int messageType = messageBuffer.ReadInt();
 			switch (messageType)
 			{
-				case Message.Disconnect:
+				case (int)Message.Disconnect:
 					
 					Stop();
 					break;
-				case Message.SignInSuccess:
-					Log.Information("Success");
+				case (int)Message.SignInSuccess:
+					Log.Information("連線成功!");
+					Log.Information("Current Connect Client: {0}", ConnectCnt.ToString());
 					break;
-				case Message.SignInFail:
-					Log.Information("Fail");
+				case (int)Message.SignInFail:
+					Log.Information("連線失敗!");
+					Stop();
 					break;
 				default:
 					break;

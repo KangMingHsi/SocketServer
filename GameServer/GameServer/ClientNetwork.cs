@@ -6,20 +6,20 @@ using System.Threading;
 
 namespace GameServer
 {
-	class CustomClient
+	class ClientNetwork
 	{
-		public delegate void MessageHandler(CustomClient client, byte[] message);
+		public delegate void MessageHandler(ClientNetwork client, byte[] message);
 		public TcpClient Client { get { return _tcpClient; } }
 
 		public bool CanClose { get { return _writeTask.IsComplete; } }
 
-		public ClientAccount ClientAccount;
+		public ClientAccount Account;
 
 		private TcpClient _tcpClient;
 		private ClientReadTask _readTask;
 		private ClientWriteTask _writeTask;
 
-		public CustomClient(TcpClient client, MessageHandler handler)
+		public ClientNetwork(TcpClient client, MessageHandler handler)
 		{
 			_tcpClient = client;
 
@@ -30,7 +30,7 @@ namespace GameServer
 
 		}
 
-		~CustomClient()
+		~ClientNetwork()
 		{
 			Stop();
 		}
