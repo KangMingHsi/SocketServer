@@ -15,7 +15,7 @@ namespace BotClient
 						.WriteTo.Console()
 						.CreateLogger();
 
-			TestMaxClient(2);
+			//TestMaxClient(100);
 
 		}
 
@@ -33,7 +33,7 @@ namespace BotClient
 			for (int i = 0; i < clientNum; ++i)
 			{
 				clients[i].Connect();
-				Thread.Sleep(1000);
+				//Thread.Sleep(1000);
 			}
 
 			byte[] b = new byte[100];
@@ -43,11 +43,11 @@ namespace BotClient
 			{
 				messageBuffer.Position = 0;
 				messageBuffer.WriteInt(Message.SignIn);
-				messageBuffer.WriteString("player0");
+				messageBuffer.WriteString("player"+i.ToString());
 				messageBuffer.WriteString("123456");
 
 				clients[i].Send(messageBuffer.Buffer);
-				//Thread.Sleep(500);
+				Thread.Sleep(10);
 			}
 
 

@@ -58,7 +58,7 @@ namespace GameServer
 			}
 		}
 
-		public async void MessageHandle(CustomClient client, byte[] message)
+		public void MessageHandle(CustomClient client, byte[] message)
 		{
 			MessageBuffer messageBuffer = new MessageBuffer(message);
 			int messageType = messageBuffer.ReadInt();
@@ -84,7 +84,7 @@ namespace GameServer
 
 					Log.Information("usr:{0}, pwd:{1}", username, password);
 
-					if (await _dbConnector.Login(username, password))
+					if (_dbConnector.Login(username, password))
 					{
 						messageBuffer.WriteInt(Message.SignInSuccess);
 						client.ClientAccount.Username = username;
