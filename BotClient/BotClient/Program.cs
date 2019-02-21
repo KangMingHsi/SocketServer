@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 
+using GameNetwork;
 using Serilog;
 
 namespace BotClient
@@ -14,7 +15,7 @@ namespace BotClient
 						.WriteTo.Console()
 						.CreateLogger();
 
-			TestMaxClient(100);
+			TestMaxClient(2);
 
 		}
 
@@ -32,7 +33,25 @@ namespace BotClient
 			for (int i = 0; i < clientNum; ++i)
 			{
 				clients[i].Connect();
+				Thread.Sleep(1000);
 			}
+
+			byte[] b = new byte[100];
+			MessageBuffer messageBuffer = new MessageBuffer(b);
+
+			for (int i = 0; i < clientNum; ++i)
+			{
+				messageBuffer.Position = 0;
+				messageBuffer.WriteInt(Message.SignIn);
+				messageBuffer.WriteString("player0");
+				messageBuffer.WriteString("123456");
+
+				clients[i].Send(messageBuffer.Buffer);
+				//Thread.Sleep(500);
+			}
+
+
+			Console.ReadLine();
 
 			Thread.Sleep(1000);
 			for (int i = 0; i < clientNum; ++i)

@@ -43,7 +43,7 @@ namespace GameServer
 			}
 			catch (Exception e)
 			{
-				Log.Information(e.StackTrace.ToString());
+				ProcessException(e);
 			}
 
 		}
@@ -69,7 +69,7 @@ namespace GameServer
 		private void ProcessException(Exception ex)
 		{
 			_isComplete = true;
-			Log.Information("Error: " + ex.Message);
+			Log.Error("Error: " + ex.Message);
 			_client.Stop();
 		}
 	}

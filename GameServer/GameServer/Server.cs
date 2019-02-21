@@ -20,12 +20,17 @@ namespace GameServer
 		private int _port;
 		private IPAddress _iPAddress;
 
+		private DatabaseConnector _dbConnector;
+
 		public Server(string ip, int port)
 		{
 			_clients = new List<CustomClient>();
 
 			_port = port;
 			_iPAddress = IPAddress.Parse(ip);
+
+			string[] config = new string[] { "127.0.0.1", "5432", "sean_kang", "jfigames", "train" };
+			_dbConnector = new DatabaseConnector(config);
 		}
 
 		~Server()
@@ -48,11 +53,12 @@ namespace GameServer
 			}
 			catch (Exception e)
 			{
-				Log.Information(e.StackTrace.ToString());
+				Log.Error(e.StackTrace.ToString());
+				Shutdown();
 			}
 		}
 
-		public void MessageHandle(CustomClient client, byte[] message)
+		public async void MessageHandle(CustomClient client, byte[] message)
 		{
 			MessageBuffer messageBuffer = new MessageBuffer(message);
 			int messageType = messageBuffer.ReadInt();
@@ -62,21 +68,27 @@ namespace GameServer
 				case Message.Disconnect:
 					// TODO save data to database
 					_clients.Remove(client);
-					Log.Information("Total Connected Client: {0}", _clients.Count.ToString());
+					_dbConnector.Logout(client.ClientAccount.Username, client.ClientAccount.Password);
 					client.Stop();
+
+					Log.Information("Total Connected Client: {0}", _clients.Count.ToString());
 					break;
 				case Message.SignIn:
 
 					// TODO Refactorize and link to database
-					string usrname = messageBuffer.ReadString();
+					string username = messageBuffer.ReadString();
 					string password = messageBuffer.ReadString();
 
 					byte[] response = new byte[10];
 					messageBuffer.Reset(response);
 
-					if (usrname.Equals("seankang") && password.Equals("123456"))
+					Log.Information("usr:{0}, pwd:{1}", username, password);
+
+					if (await _dbConnector.Login(username, password))
 					{
 						messageBuffer.WriteInt(Message.SignInSuccess);
+						client.ClientAccount.Username = username;
+						client.ClientAccount.Password = password;
 					}
 					else
 					{
@@ -113,7 +125,7 @@ namespace GameServer
 			}
 			catch (Exception e)
 			{
-				Log.Information(e.StackTrace.ToString());
+				Log.Error(e.StackTrace.ToString());
 				throw;
 			}
 		}
@@ -121,34 +133,42 @@ namespace GameServer
 		// TODO 
 		private void ServerCommandHandle(object obj)
 		{
-			while (!_isFinish)
+			try
 			{
-				if (Console.KeyAvailable)
+				while (!_isFinish)
 				{
-					var key = Console.ReadKey().Key;
-
-					byte[] message = new byte[10];
-					MessageBuffer messageBuffer = new MessageBuffer(message);
-
-					switch (key)
+					if (Console.KeyAvailable)
 					{
-						case ConsoleKey.Q:
-							messageBuffer.WriteInt(Message.Disconnect);
-							Broadcast(messageBuffer.Buffer);
+						var key = Console.ReadKey().Key;
 
-							_isFinish = true;
-							break;
-						case ConsoleKey.H:
+						byte[] message = new byte[10];
+						MessageBuffer messageBuffer = new MessageBuffer(message);
 
-							messageBuffer.WriteInt(Message.NoMeaning);
-							Broadcast(messageBuffer.Buffer);
-							break;
-						default:
-							break;
+						switch (key)
+						{
+							case ConsoleKey.Q:
+								messageBuffer.WriteInt(Message.Disconnect);
+								Broadcast(messageBuffer.Buffer);
+
+								_isFinish = true;
+								break;
+							case ConsoleKey.H:
+
+								messageBuffer.WriteInt(Message.NoMeaning);
+								Broadcast(messageBuffer.Buffer);
+								break;
+							default:
+								break;
+						}
 					}
-				}
 
-				Thread.Sleep(1);
+					Thread.Sleep(1);
+				}
+			}
+			catch (Exception e)
+			{
+				Shutdown();
+				Log.Error(e.Message);
 			}
 		}
 
@@ -158,10 +178,12 @@ namespace GameServer
 
 			foreach (var client in _clients)
 			{
+				_dbConnector.Logout(client.ClientAccount.Username, client.ClientAccount.Password);
 				client.Stop();
 			}
 
 			_clients.Clear();
+			_dbConnector.Close();
 
 			Log.Information("Finish!!");
 			Thread.Sleep(1000);

@@ -37,7 +37,7 @@ namespace GameServer
 			}
 			catch (Exception e)
 			{
-				Log.Information(e.StackTrace.ToString());
+				ProcessException(e);
 			}
 		}
 
@@ -82,7 +82,7 @@ namespace GameServer
 		{
 			// TODO define error code;
 			_messageHandler(_client, null);
-			Log.Information("Error: " + ex.Message);
+			Log.Error("Error: " + ex.Message);
 			_client.Stop();
 		}
 	}
