@@ -16,64 +16,81 @@ namespace BotClient
 						.CreateLogger();
 
 
-			RPSGame game = new RPSGame();
+			//RPSGame game = new RPSGame();
 
-			game.AddPlayer(new ClientPlayer());
-			game.AddPlayer(new ClientPlayer());
+			//game.AddPlayer(new ClientPlayer());
+			//game.AddPlayer(new ClientPlayer());
 
-			game.GameLoop();
+			//game.GameLoop();
 
-			Thread.Sleep(1000);
+			//Thread.Sleep(1000);
 
-			game.AddPlayer(new ClientPlayer());
-			game.AddPlayer(new ClientPlayer());
+			//game.AddPlayer(new ClientPlayer());
+			//game.AddPlayer(new ClientPlayer());
 
-			game.GameLoop();
+			//game.GameLoop();
 
-			//TestMaxClient(100);
-			Thread.Sleep(1000);
+			TestMaxClient(2);
+
+			Thread.Sleep(2);
 		}
 
 		static void TestMaxClient(int clientNum)
 		{
-			List<CustomClient> clients = new List<CustomClient>();
+			List<ClientPlayer> clients = new List<ClientPlayer>();
 
-			ThreadPool.SetMinThreads(clientNum * 2, clientNum * 2);
+			ThreadPool.SetMinThreads(clientNum * 2 + 4, clientNum * 2 + 4);
 
 			for (int i = 0; i < clientNum; ++i)
 			{
-				clients.Add(new CustomClient("127.0.0.1", 36000));
+				clients.Add(new ClientPlayer());
 			}
 
 			for (int i = 0; i < clientNum; ++i)
 			{
-				clients[i].Connect();
-				//Thread.Sleep(1000);
+				clients[i].ConnectToServer();
+				Thread.Sleep(10);
 			}
 
-			byte[] b = new byte[100];
-			MessageBuffer messageBuffer = new MessageBuffer(b);
+			Console.ReadLine();
+
+
+			MessageBuffer messageBuffer = new MessageBuffer(new byte[100]);
 
 			for (int i = 0; i < clientNum; ++i)
 			{
-				messageBuffer.Position = 0;
-				messageBuffer.WriteInt(Message.SignIn);
+				messageBuffer.Reset();
+				messageBuffer.WriteInt((int)Message.SignIn);
 				messageBuffer.WriteString("player"+i.ToString());
 				messageBuffer.WriteString("123456");
 
-				clients[i].Send(messageBuffer.Buffer);
+				clients[i].SendMessageToServer(messageBuffer.Buffer);
 				Thread.Sleep(10);
 			}
 
 
 			Console.ReadLine();
 
-			Thread.Sleep(1000);
 			for (int i = 0; i < clientNum; ++i)
 			{
-				clients[i].Close();
-				Thread.Sleep(1);
-				clients[i].Stop();
+				messageBuffer.Reset();
+				messageBuffer.WriteInt((int)Message.MatchGame);
+
+				clients[i].SendMessageToServer(messageBuffer.Buffer);
+				Thread.Sleep(10);
+			}
+
+
+			Thread.Sleep(1000);
+
+
+
+			Console.ReadLine();
+
+			for (int i = 0; i < clientNum; ++i)
+			{
+				clients[i].Disconnect();
+				Thread.Sleep(10);
 			}
 
 			clients.Clear();

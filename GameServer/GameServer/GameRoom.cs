@@ -12,21 +12,32 @@ namespace GameServer
 		public bool IsOver { get; private set; } = true;
 
 		private static int[,] _winnerLookUpTable = null;
+		private Server _server;
 
 		private ClientPlayer _leftPlayer = null;
 		private ClientPlayer _rightPlayer = null;
 
-		public GameRoom()
+		private MessageBuffer _messageBuffer;
+
+		public GameRoom(Server server)
 		{
 			InitWinnerLookUpTable();
+
+			_server = server;
+			_messageBuffer = new MessageBuffer(new byte[8]);
 		}
 
 		public void GameStart()
 		{
 			IsOver = false;
 
-			byte[] buffer = new byte[100];
-			MessageBuffer messageBuffer = new MessageBuffer(buffer);
+			_messageBuffer.Reset();
+			_messageBuffer.WriteInt((int)Message.MatchGame);
+
+			_leftPlayer.SendGameData(_messageBuffer.Buffer.Clone() as byte[]);
+			_rightPlayer.SendGameData(_messageBuffer.Buffer.Clone() as byte[]);
+
+			Log.Information("Game Start");
 
 			while (!IsOver)
 			{
@@ -37,20 +48,15 @@ namespace GameServer
 					if (result == 0)
 					{
 						Log.Information("Again!");
-						continue;
+						_leftPlayer.SendGameData(_messageBuffer.Buffer.Clone() as byte[]);
+						_rightPlayer.SendGameData(_messageBuffer.Buffer.Clone() as byte[]);
 					}
-					else if (result == -1)
+					else 
 					{
-						Log.Information("P2 win");
-						GameOver();
+						GameOver(result);
 						IsOver = true;
 					}
-					else
-					{
-						Log.Information("Pl win");
-						GameOver();
-						IsOver = true;
-					}
+					
 				}
 
 				Thread.Sleep(1);
@@ -111,8 +117,32 @@ namespace GameServer
 			return _winnerLookUpTable[leftPlayerAction, rightPlayerAction];
 		}
 
-		private void GameOver()
+		private void GameOver(int result)
 		{
+			Log.Information("GameOver");
+
+			_messageBuffer.Reset();
+			_messageBuffer.WriteInt((int)Message.GameOver);
+
+			_leftPlayer.SendGameData(_messageBuffer.Buffer);
+			_rightPlayer.SendGameData(_messageBuffer.Buffer);
+
+			var dbConnector = _server.GetDatabaseConnectior();
+
+			if (result > 0)
+			{
+				_leftPlayer.Account.Score += _server.WinScore;
+				_rightPlayer.Account.Score += _server.LoseSocre;
+			}
+			else
+			{
+				_rightPlayer.Account.Score += _server.WinScore;
+				_leftPlayer.Account.Score += _server.LoseSocre;
+			}
+
+			dbConnector.UpdateScore(_leftPlayer.Account);
+			dbConnector.UpdateScore(_rightPlayer.Account);
+
 			_leftPlayer = null;
 			_rightPlayer = null;
 		}

@@ -8,20 +8,20 @@ namespace BotClient
 {
 	class ClientReadTask
 	{
-		private event CustomClient.MessageHandler _messageHandler;
+		private event ClientPlayer.MessageHandler _messageHandler;
 
 		private readonly byte[] _data = new byte[1024];
 		private int _bytesRead = 0;
 		private bool _isDisconnect = false;
 
 		private NetworkStream _stream;
-		private CustomClient _client;
+		private ClientNetwork _client;
 
-		public ClientReadTask(CustomClient client, CustomClient.MessageHandler handler)
+		public ClientReadTask(ClientNetwork client, ClientPlayer.MessageHandler handler)
 		{
 			_client = client;
 			_stream = _client.Client.GetStream();
-			_messageHandler = new CustomClient.MessageHandler(handler);
+			_messageHandler = new ClientPlayer.MessageHandler(handler);
 		}
 
 		public void Stop()

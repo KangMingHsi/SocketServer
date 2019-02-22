@@ -8,7 +8,7 @@ namespace GameServer
 {
 	class ClientReadTask
 	{
-		private event ClientNetwork.MessageHandler _messageHandler;
+		private event ClientPlayer.ClientMessageHandler _messageHandler;
 
 		private readonly byte[] _data = new byte[1024];
 		private int _bytesRead = 0;
@@ -17,11 +17,11 @@ namespace GameServer
 		private NetworkStream _stream;
 		private ClientNetwork _client;
 
-		public ClientReadTask(ClientNetwork client, ClientNetwork.MessageHandler handler)
+		public ClientReadTask(ClientNetwork client, ClientPlayer.ClientMessageHandler handler)
 		{
 			_client = client;
 			_stream = _client.Client.GetStream();
-			_messageHandler = new ClientNetwork.MessageHandler(handler);
+			_messageHandler = new ClientPlayer.ClientMessageHandler(handler);
 		}
 
 		public void Stop()
@@ -69,7 +69,7 @@ namespace GameServer
 				else
 				{
 					_bytesRead = 0;
-					_messageHandler(_client, _data);
+					_messageHandler(_data);
 				}
 			}
 			catch (Exception ex)
@@ -81,7 +81,7 @@ namespace GameServer
 		private void ProcessException(Exception ex)
 		{
 			// TODO define error code;
-			_messageHandler(_client, null);
+			_messageHandler(null);
 			Log.Error("Error: " + ex.Message);
 			_client.Stop();
 		}

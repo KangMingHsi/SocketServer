@@ -14,6 +14,10 @@ namespace GameNetwork
 		SignInFail,
 
 		MatchGame,
+		GameAction,
+		GameOver,
+
+		UpdateGameData,
 
 		NoMeaning
 	}

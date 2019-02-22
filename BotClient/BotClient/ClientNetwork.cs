@@ -9,16 +9,14 @@ using GameNetwork;
 
 namespace BotClient
 {
-	class CustomClient
+	class ClientNetwork
 	{
-		public delegate void MessageHandler(byte[] message);
-
-		public static int ConnectCnt;
 		public TcpClient Client { get { return _tcpClient; } }
 
+		private ClientPlayer.MessageHandler _handler;
 
-		IPAddress _iPAddress;
-		int _port;
+		private IPAddress _iPAddress;
+		private int _port;
 
 		private byte[] _data = new byte[5000];
 		private int _bytesRead = 0;
@@ -27,16 +25,14 @@ namespace BotClient
 		private ClientReadTask _readTask;
 		private ClientWriteTask _writeTask;
 
-		public CustomClient(string server, int port)
+
+		public ClientNetwork(string server, int port, ClientPlayer.MessageHandler handle)
 		{
 			_iPAddress = IPAddress.Parse(server);
 			_port = port;
 			_tcpClient = new TcpClient();
-		}
 
-		~CustomClient()
-		{
-			Stop();
+			_handler = handle;
 		}
 
 		public void Connect()
@@ -47,7 +43,7 @@ namespace BotClient
 			}
 			catch (Exception e)
 			{
-				Log.Information(e.StackTrace.ToString());
+				Log.Error(e.StackTrace.ToString());
 			}
 		}
 
@@ -57,10 +53,8 @@ namespace BotClient
 
 			if (_tcpClient.Connected)
 			{
-				_readTask = new ClientReadTask(this, HandleMessage);
-				_writeTask = new ClientWriteTask(this, HandleMessage);
-				ConnectCnt++;
-
+				_readTask = new ClientReadTask(this, _handler);
+				_writeTask = new ClientWriteTask(this, _handler);
 				ThreadPool.QueueUserWorkItem(StartReadTask, _tcpClient);
 			}
 			else
@@ -83,13 +77,10 @@ namespace BotClient
 
 		public void Close()
 		{
-			byte[] message = new byte[10];
-			MessageBuffer messageBuffer = new MessageBuffer(message);
-
 			try
 			{
-				messageBuffer.WriteInt((int)Message.Disconnect);
-				Send(messageBuffer.Buffer);
+				byte[] bytes = BitConverter.GetBytes((int)Message.Disconnect);
+				Send(bytes);
 			}
 			catch (Exception e)
 			{
@@ -117,37 +108,12 @@ namespace BotClient
 			_writeTask.Write(message as byte[]);
 		}
 
-		private void HandleMessage(byte[] message)
-		{
-			MessageBuffer messageBuffer = new MessageBuffer(message);
-			int messageType = messageBuffer.ReadInt();
-			switch (messageType)
-			{
-				case (int)Message.Disconnect:
-					
-					Stop();
-					break;
-				case (int)Message.SignInSuccess:
-					Log.Information("連線成功!");
-					Log.Information("Current Connect Client: {0}", ConnectCnt.ToString());
-					break;
-				case (int)Message.SignInFail:
-					Log.Information("連線失敗!");
-					Stop();
-					break;
-				default:
-					break;
-			}
-		}
-
 		private void Cleanup()
 		{
 			if (_tcpClient != null)
 			{
 				_tcpClient.Close();
-				--ConnectCnt;
 			}
-			Log.Information("Current Connect Client: {0}", ConnectCnt.ToString());
 		}
 	}
 

@@ -12,12 +12,7 @@ namespace GameServer
 		// config sequence: ip, port, id, password, db
 		public DatabaseConnector(string[] config)
 		{
-			_connectionString = GetConnectionConfig(config);
-		}
-
-		~DatabaseConnector()
-		{
-			Close();
+			_connectionString = DatabaseCmd.GetConnectionConfig(config);
 		}
 
 		public void Close()
@@ -25,7 +20,7 @@ namespace GameServer
 			Log.Warning("DB is closed!");
 		}
 
-		public bool Login(string usr, string pwd)
+		public bool Login(ClientAccount account)
 		{
 			try
 			{
@@ -35,18 +30,14 @@ namespace GameServer
 					using (var cmd = new NpgsqlCommand())
 					{
 						cmd.Connection = conn;
-						cmd.CommandText = string.Format("UPDATE player SET status=true WHERE username='{0}' and password='{1}' and status=false;", usr, pwd);
+						cmd.CommandText = DatabaseCmd.GetLoginCmd(account.Username, account.Password);
 
-						if ((cmd.ExecuteNonQuery()) > 0)
-						{
-							return true;
-						}
-						else
-						{
-							return false;
-						}
+						bool success = (cmd.ExecuteNonQuery()) > 0;
+						conn.Close();
 
+						return success;
 					}
+
 				}
 			}
 			catch (Exception e)
@@ -58,7 +49,7 @@ namespace GameServer
 			return false;
 		}
 
-		public void Logout(string usr, string pwd)
+		public void Logout(ClientAccount account)
 		{
 			try
 			{
@@ -68,9 +59,10 @@ namespace GameServer
 					using (var cmd = new NpgsqlCommand())
 					{
 						cmd.Connection = conn;
-						cmd.CommandText = string.Format("UPDATE player SET status=false WHERE username='{0}' and password='{1}' and status=true;", usr, pwd);
+						cmd.CommandText = DatabaseCmd.GetLogoutCmd(account.Username, account.Password);
 						cmd.ExecuteNonQuery();
 					}
+					conn.Close();
 				}
 			}
 			catch (Exception e)
@@ -81,9 +73,29 @@ namespace GameServer
 
 		}
 
-		private string GetConnectionConfig(string[] config)
+		public void UpdateScore(ClientAccount account)
 		{
-			return string.Format("Server={0};Port={1};User Id={2};Password={3};Database={4};", config[0], config[1], config[2], config[3], config[4]);
+			try
+			{
+				using (var conn = new NpgsqlConnection(_connectionString))
+				{
+					conn.Open();
+					using (var cmd = new NpgsqlCommand())
+					{
+						cmd.Connection = conn;
+						cmd.CommandText = DatabaseCmd.GetUpdateScoreCmd(account.Username, account.Score);
+						cmd.ExecuteNonQuery();
+					}
+					conn.Close();
+				}
+			}
+			catch (Exception e)
+			{
+				Log.Error(e.Message);
+				Close();
+			}
 		}
+
+
 	}
 }

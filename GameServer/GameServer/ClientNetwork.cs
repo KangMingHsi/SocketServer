@@ -8,18 +8,16 @@ namespace GameServer
 {
 	class ClientNetwork
 	{
-		public delegate void MessageHandler(ClientNetwork client, byte[] message);
+		//public delegate void MessageHandler(ClientNetwork client, byte[] message);
 		public TcpClient Client { get { return _tcpClient; } }
 
 		public bool CanClose { get { return _writeTask.IsComplete; } }
-
-		public ClientAccount Account;
 
 		private TcpClient _tcpClient;
 		private ClientReadTask _readTask;
 		private ClientWriteTask _writeTask;
 
-		public ClientNetwork(TcpClient client, MessageHandler handler)
+		public ClientNetwork(TcpClient client, ClientPlayer.ClientMessageHandler handler)
 		{
 			_tcpClient = client;
 
@@ -27,12 +25,6 @@ namespace GameServer
 			_writeTask = new ClientWriteTask(this, handler);
 
 			ThreadPool.QueueUserWorkItem(StartReadTask, client);
-
-		}
-
-		~ClientNetwork()
-		{
-			Stop();
 		}
 
 		public void Stop()

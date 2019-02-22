@@ -14,6 +14,11 @@ namespace GameNetwork
 			Buffer = buffer;
 		}
 
+		public void Reset()
+		{
+			Position = 0;
+		}
+
 		public void Reset(byte[] buffer)
 		{
 			Buffer = buffer;

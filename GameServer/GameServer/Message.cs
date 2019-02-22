@@ -15,7 +15,9 @@ namespace GameNetwork
 
 		MatchGame,
 		GameAction,
+		GameOver,
 
+		UpdateGameData,
 
 		NoMeaning
 	}

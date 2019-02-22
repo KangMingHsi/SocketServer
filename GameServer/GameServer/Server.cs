@@ -11,15 +11,19 @@ namespace GameServer
 {
 	class Server
 	{
+		public delegate void ServerMessageHandler(ClientPlayer clientPlayer, byte[] message);
+
+		public readonly int WinScore = 5;
+		public readonly int LoseSocre = -3;
+
 		private readonly int MaxClient = 100;
 
 		private TcpListener _tcpListener;
-		private List<ClientNetwork> _clients;
+		private List<ClientPlayer> _clients;
 
 		private List<GameRoom> _gamingRooms;
 		private List<GameRoom> _availableRooms;
-
-		private List<int> _pendingPlayers;
+		private List<ClientPlayer> _pendingPlayers;
 
 
 		private bool _isFinish = false;
@@ -28,9 +32,11 @@ namespace GameServer
 
 		private DatabaseConnector _dbConnector;
 
+		// TODO create new class to handle byte[] transfer between message
+
 		public Server(string ip, int port)
 		{
-			_clients = new List<ClientNetwork>();
+			_clients = new List<ClientPlayer>();
 
 			_port = port;
 			_iPAddress = IPAddress.Parse(ip);
@@ -43,12 +49,7 @@ namespace GameServer
 			_tcpListener.Start();
 			Log.Information(@"Server is on and binds to port {0}", _port.ToString());
 
-			ThreadPool.SetMinThreads(MaxClient * 2 + 1, MaxClient * 2 + 1);
-		}
-
-		~Server()
-		{
-			Shutdown();
+			ThreadPool.SetMinThreads(MaxClient * 2 + 4, MaxClient * 2 + 4);
 		}
 
 		public void Run()
@@ -64,7 +65,6 @@ namespace GameServer
 
 					CheckGameIsOver();
 					MatchPendingPlayers();
-					
 
 
 					Thread.Sleep(1);
@@ -81,14 +81,20 @@ namespace GameServer
 			}
 		}
 
+		public DatabaseConnector GetDatabaseConnectior()
+		{
+			return _dbConnector;
+		}
+
 		private void SetupGameRooms(int roomCnt)
 		{
+			_pendingPlayers = new List<ClientPlayer>();
 			_gamingRooms = new List<GameRoom>();
 			_availableRooms = new List<GameRoom>();
 
 			for (int room = 0; room < roomCnt; ++room)
 			{
-				_availableRooms.Add(new GameRoom()); 
+				_availableRooms.Add(new GameRoom(this)); 
 			}
 		}
 
@@ -97,8 +103,8 @@ namespace GameServer
 			if (_tcpListener.Pending())
 			{
 				TcpClient tcpClient = _tcpListener.AcceptTcpClient();
-				ClientNetwork client = new ClientNetwork(tcpClient, MessageHandle);
-				_clients.Add(client);
+		
+				_clients.Add(new ClientPlayer(tcpClient, MessageHandle));
 				Log.Information("Total Connected Client: {0}", _clients.Count.ToString());
 			}	
 		}
@@ -109,22 +115,19 @@ namespace GameServer
 			if (Console.KeyAvailable)
 			{
 				var key = Console.ReadKey().Key;
-
-				byte[] message = new byte[10];
-				MessageBuffer messageBuffer = new MessageBuffer(message);
-
+				byte[] bytes = null;
+				
 				switch (key)
 				{
 					case ConsoleKey.Q:
-						messageBuffer.WriteInt((int)Message.Disconnect);
-						Broadcast(messageBuffer.Buffer);
+						bytes = BitConverter.GetBytes((int)Message.Disconnect);
+						Broadcast(bytes);
 
 						_isFinish = true;
 						break;
 					case ConsoleKey.H:
-
-						messageBuffer.WriteInt((int)Message.NoMeaning);
-						Broadcast(messageBuffer.Buffer);
+						bytes = BitConverter.GetBytes((int)Message.NoMeaning);
+						Broadcast(bytes);
 						break;
 					default:
 						break;
@@ -155,18 +158,25 @@ namespace GameServer
 
 				// TODO
 				// Use threads to run game and fix errors
-				//room.AddPlayer(_pendingPlayers[0]);
-				//_pendingPlayers.RemoveAt(0);
-				//room.AddPlayer(_pendingPlayers[0]);
-				//_pendingPlayers.RemoveAt(0);
-				//room.GameStart();
+				room.AddPlayer(_pendingPlayers[0]);
+				_pendingPlayers.RemoveAt(0);
+				room.AddPlayer(_pendingPlayers[0]);
+				_pendingPlayers.RemoveAt(0);
+				ThreadPool.QueueUserWorkItem(StartGame, room);
 
 				_gamingRooms.Add(room);
 				_availableRooms.RemoveAt(0);
+
 			}
 		}
 
-		private void MessageHandle(ClientNetwork client, byte[] message)
+		private void StartGame(object game)
+		{
+			GameRoom gRoom = game as GameRoom;
+			gRoom.GameStart();
+		}
+
+		private void MessageHandle(ClientPlayer clientPlayer, byte[] message)
 		{
 			MessageBuffer messageBuffer = new MessageBuffer(message);
 			int messageType = messageBuffer.ReadInt();
@@ -175,40 +185,39 @@ namespace GameServer
 			{
 				case (int)Message.Disconnect:
 					// TODO save data to database
-					_clients.Remove(client);
-					_dbConnector.Logout(client.Account.Username, client.Account.Password);
-					client.Stop();
+					_clients.Remove(clientPlayer);
+					_dbConnector.Logout(clientPlayer.Account);
+					clientPlayer.Disconnect();
 
 					Log.Information("Total Connected Client: {0}", _clients.Count.ToString());
 					break;
+
 				case (int)Message.SignIn:
 
-					// TODO Refactorize and link to database
-					string username = messageBuffer.ReadString();
-					string password = messageBuffer.ReadString();
+					clientPlayer.Account.Username = messageBuffer.ReadString();
+					clientPlayer.Account.Password = messageBuffer.ReadString();
 
-					byte[] response = new byte[10];
-					messageBuffer.Reset(response);
-
-					Log.Information("usr:{0}, pwd:{1}", username, password);
-
-					if (_dbConnector.Login(username, password))
+					messageBuffer.Reset();
+				
+					if (_dbConnector.Login(clientPlayer.Account))
 					{
 						messageBuffer.WriteInt((int)Message.SignInSuccess);
-						client.Account.Username = username;
-						client.Account.Password = password;
 					}
 					else
 					{
 						messageBuffer.WriteInt((int)Message.SignInFail);
 					}
 
-					SendMessage(client, messageBuffer.Buffer);
+					SendMessage(clientPlayer, messageBuffer.Buffer);
 					break;
+
 				case (int)Message.MatchGame:
 
 					// TODO
 					// Add to pend list
+
+					Log.Information("Some Start to pend");
+					_pendingPlayers.Add(clientPlayer);
 
 					break;
 				default:
@@ -224,8 +233,8 @@ namespace GameServer
 
 			foreach (var client in _clients)
 			{
-				_dbConnector.Logout(client.ClientAccount.Username, client.ClientAccount.Password);
-				client.Stop();
+				_dbConnector.Logout(client.Account);
+				client.Disconnect();
 			}
 
 			_clients.Clear();
@@ -243,9 +252,9 @@ namespace GameServer
 			}
 		}
 
-		private void SendMessage(ClientNetwork client, byte[] message)
+		private void SendMessage(ClientPlayer client, byte[] message)
 		{
-			client.Send(message);
+			client.SendGameData(message);
 		}
 	}
 }
