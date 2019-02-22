@@ -9,6 +9,7 @@ namespace GameServer
 {
 	class GameRoom
 	{
+		public int RoomId;
 		public bool IsOver { get; private set; } = true;
 
 		private static int[,] _winnerLookUpTable = null;
@@ -34,10 +35,9 @@ namespace GameServer
 			_messageBuffer.Reset();
 			_messageBuffer.WriteInt((int)Message.MatchGame);
 
-			_leftPlayer.SendGameData(_messageBuffer.Buffer.Clone() as byte[]);
-			_rightPlayer.SendGameData(_messageBuffer.Buffer.Clone() as byte[]);
+			Broadcast(_messageBuffer.Buffer);
 
-			Log.Information("Game Start");
+			Log.Information("遊戲開始");
 
 			while (!IsOver)
 			{
@@ -47,9 +47,8 @@ namespace GameServer
 
 					if (result == 0)
 					{
-						Log.Information("Again!");
-						_leftPlayer.SendGameData(_messageBuffer.Buffer.Clone() as byte[]);
-						_rightPlayer.SendGameData(_messageBuffer.Buffer.Clone() as byte[]);
+						Log.Information("平手!");
+						Broadcast(_messageBuffer.Buffer);
 					}
 					else 
 					{
@@ -87,6 +86,12 @@ namespace GameServer
 			return (_leftPlayer != null) && (_rightPlayer != null);
 		}
 
+		private void Broadcast(byte[] message)
+		{
+			_leftPlayer.SendGameData(message.Clone() as byte[]);
+			_rightPlayer.SendGameData(message.Clone() as byte[]);
+		}
+
 		// 0 = 石頭, 1 = 剪刀, 2 = 布
 		private void InitWinnerLookUpTable()
 		{
@@ -108,7 +113,7 @@ namespace GameServer
 				_winnerLookUpTable[2, 0] = 1;
 				_winnerLookUpTable[2, 1] = -1;
 
-				Log.Information("Init");
+				Log.Information("初始化規則");
 			}
 		}
 
@@ -119,7 +124,7 @@ namespace GameServer
 
 		private void GameOver(int result)
 		{
-			Log.Information("GameOver");
+			Log.Information("遊戲結束");
 
 			_messageBuffer.Reset();
 			_messageBuffer.WriteInt((int)Message.GameOver);
@@ -133,12 +138,18 @@ namespace GameServer
 			{
 				_leftPlayer.Account.Score += _server.WinScore;
 				_rightPlayer.Account.Score += _server.LoseSocre;
+
+				Log.Information("玩家{0}獲勝", _leftPlayer.Account.Username);
 			}
 			else
 			{
 				_rightPlayer.Account.Score += _server.WinScore;
 				_leftPlayer.Account.Score += _server.LoseSocre;
+				Log.Information("玩家{0}獲勝", _rightPlayer.Account.Username);
 			}
+
+			Log.Information("玩家{0}得分:{2}\n玩家{1}得分:{3}", _leftPlayer.Account.Username, _rightPlayer.Account.Username
+																,_leftPlayer.Account.Score.ToString(), _rightPlayer.Account.Score.ToString());
 
 			dbConnector.UpdateScore(_leftPlayer.Account);
 			dbConnector.UpdateScore(_rightPlayer.Account);

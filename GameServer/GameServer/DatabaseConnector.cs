@@ -1,18 +1,27 @@
 ﻿using System;
-using System.Threading.Tasks;
+using System.IO;
 
 using Serilog;
 using Npgsql;
+using GameNetwork;
 
 namespace GameServer
 {
 	class DatabaseConnector
 	{
 		private string _connectionString;
+		private string _key;
 		// config sequence: ip, port, id, password, db
 		public DatabaseConnector(string[] config)
 		{
 			_connectionString = DatabaseCmd.GetConnectionConfig(config);
+
+			using (FileStream file = new FileStream("PrivateKey.xml", FileMode.Open, FileAccess.Read))
+			{
+				byte[] bytes = new byte[1024];
+				file.Read(bytes, 0, 1024);
+				_key = System.Text.Encoding.ASCII.GetString(bytes);
+			}
 		}
 
 		public void Close()
@@ -20,22 +29,48 @@ namespace GameServer
 			Log.Warning("DB is closed!");
 		}
 
-		public bool Login(ClientAccount account)
+		public void Login(ref ClientAccount account)
 		{
 			try
 			{
 				using (var conn = new NpgsqlConnection(_connectionString))
 				{
+					Log.Information("帳號登入中");
 					conn.Open();
 					using (var cmd = new NpgsqlCommand())
 					{
 						cmd.Connection = conn;
-						cmd.CommandText = DatabaseCmd.GetLoginCmd(account.Username, account.Password);
+						cmd.CommandText = DatabaseCmd.GetSelectPasswordCmd(account.Username);
 
-						bool success = (cmd.ExecuteNonQuery()) > 0;
+						string storedPassword;
+
+						using (var reader = cmd.ExecuteReader())
+						{
+							if (reader.Read())
+							{
+								storedPassword = reader.GetString(0);
+							}
+							else
+							{
+								return;
+							}
+						}
+
+						if (Verification(storedPassword, account.Password))
+						{
+							Log.Information("驗證通過");
+							cmd.CommandText = DatabaseCmd.GetLoginCmd(account.Username);
+							account.IsOnline = (cmd.ExecuteNonQuery()) > 0;
+
+							cmd.CommandText = DatabaseCmd.GetSelectScoreCmd(account.Username);
+							using (var reader = cmd.ExecuteReader())
+							{
+								reader.Read();
+								account.Score = reader.GetInt32(0);
+							}
+						}
+
 						conn.Close();
-
-						return success;
 					}
 
 				}
@@ -45,11 +80,9 @@ namespace GameServer
 				Log.Error(e.Message);
 				Close();
 			}
-
-			return false;
 		}
 
-		public void Logout(ClientAccount account)
+		public void Logout(ref ClientAccount account)
 		{
 			try
 			{
@@ -59,8 +92,13 @@ namespace GameServer
 					using (var cmd = new NpgsqlCommand())
 					{
 						cmd.Connection = conn;
-						cmd.CommandText = DatabaseCmd.GetLogoutCmd(account.Username, account.Password);
+						cmd.CommandText = DatabaseCmd.GetUpdateScoreCmd(account.Username, account.Score);
 						cmd.ExecuteNonQuery();
+
+						cmd.CommandText = DatabaseCmd.GetLogoutCmd(account.Username);
+						cmd.ExecuteNonQuery();
+
+						account.IsOnline = false;
 					}
 					conn.Close();
 				}
@@ -96,6 +134,10 @@ namespace GameServer
 			}
 		}
 
-
+		private bool Verification(string storedPassword, string accountPassword)
+		{
+			Log.Information("驗證密碼中");
+			return RSAHelper.Decrypt(_key, storedPassword).Equals(RSAHelper.Decrypt(_key, accountPassword));
+		}
 	}
 }

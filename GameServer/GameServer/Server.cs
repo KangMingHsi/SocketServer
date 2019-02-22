@@ -15,6 +15,7 @@ namespace GameServer
 
 		public readonly int WinScore = 5;
 		public readonly int LoseSocre = -3;
+		public readonly int MaxGameRoom = 50;
 
 		private readonly int MaxClient = 100;
 
@@ -25,17 +26,20 @@ namespace GameServer
 		private List<GameRoom> _availableRooms;
 		private List<ClientPlayer> _pendingPlayers;
 
-
 		private bool _isFinish = false;
 		private int _port;
 		private IPAddress _iPAddress;
 
 		private DatabaseConnector _dbConnector;
 
+		private Timer _timer;
+
 		// TODO create new class to handle byte[] transfer between message
 
 		public Server(string ip, int port)
 		{
+			_timer = new Timer();
+
 			_clients = new List<ClientPlayer>();
 
 			_port = port;
@@ -47,7 +51,8 @@ namespace GameServer
 
 			_tcpListener = new TcpListener(_iPAddress, _port);
 			_tcpListener.Start();
-			Log.Information(@"Server is on and binds to port {0}", _port.ToString());
+
+			Log.Information("伺服器啟動在Port:{0}", _port.ToString());
 
 			ThreadPool.SetMinThreads(MaxClient * 2 + 4, MaxClient * 2 + 4);
 		}
@@ -56,16 +61,20 @@ namespace GameServer
 		{
 			try
 			{
-				SetupGameRooms(2);
+				SetupGameRooms(MaxGameRoom);
+				_timer.Start();
 
 				while (!_isFinish)
 				{
+					double deltaTime = _timer.DeltaTime;
+
 					ServerCommandHandle();
 					ListenToClient();
 
 					CheckGameIsOver();
 					MatchPendingPlayers();
 
+					UpdateStatus(deltaTime);
 
 					Thread.Sleep(1);
 				}
@@ -88,6 +97,8 @@ namespace GameServer
 
 		private void SetupGameRooms(int roomCnt)
 		{
+			Log.Information("初始化房間");
+
 			_pendingPlayers = new List<ClientPlayer>();
 			_gamingRooms = new List<GameRoom>();
 			_availableRooms = new List<GameRoom>();
@@ -102,14 +113,13 @@ namespace GameServer
 		{
 			if (_tcpListener.Pending())
 			{
-				TcpClient tcpClient = _tcpListener.AcceptTcpClient();
-		
-				_clients.Add(new ClientPlayer(tcpClient, MessageHandle));
-				Log.Information("Total Connected Client: {0}", _clients.Count.ToString());
+				_clients.Add(new ClientPlayer(_tcpListener.AcceptTcpClient(), MessageHandle));
+
+				Log.Information("總連線數:{0}", _clients.Count.ToString());
 			}	
 		}
 
-		// TODO 
+		// Flexiable To Add New Things
 		private void ServerCommandHandle()
 		{
 			if (Console.KeyAvailable)
@@ -141,6 +151,7 @@ namespace GameServer
 			{
 				if(_gamingRooms[i].IsOver) 
 				{
+					Log.Information("回收房間");
 					_availableRooms.Add(_gamingRooms[i]);
 					_gamingRooms.RemoveAt(i);
 				}
@@ -149,24 +160,44 @@ namespace GameServer
 
 		private void MatchPendingPlayers()
 		{
-			// TODO match opponent by score and must match in 5 second if there is other pending player (no matter the diff of their score) 
-			// _pendingPlayers.Sort();
-
-			while (_availableRooms.Count > 0 && _pendingPlayers.Count > 1)
+			if (_availableRooms.Count > 0 && _pendingPlayers.Count > 1)
 			{
-				GameRoom room = _availableRooms[0];
+				Log.Information("配對玩家");
+				var matching = new PlayerMatching();
+				_pendingPlayers.Sort(matching);
 
-				// TODO
-				// Use threads to run game and fix errors
-				room.AddPlayer(_pendingPlayers[0]);
-				_pendingPlayers.RemoveAt(0);
-				room.AddPlayer(_pendingPlayers[0]);
-				_pendingPlayers.RemoveAt(0);
-				ThreadPool.QueueUserWorkItem(StartGame, room);
+				int idxOffset = 0;
 
-				_gamingRooms.Add(room);
-				_availableRooms.RemoveAt(0);
+				do
+				{
+					if (Math.Abs(_pendingPlayers[idxOffset].Account.Score - _pendingPlayers[idxOffset + 1].Account.Score) >= 10)
+					{
+						++idxOffset;
+					}
+					else
+					{
+						Log.Information("配對一組成功");
+						GameRoom room = _availableRooms[0];
 
+						room.AddPlayer(_pendingPlayers[idxOffset]);
+						_pendingPlayers.RemoveAt(idxOffset);
+						room.AddPlayer(_pendingPlayers[idxOffset]);
+						_pendingPlayers.RemoveAt(idxOffset);
+						ThreadPool.QueueUserWorkItem(StartGame, room);
+
+						_gamingRooms.Add(room);
+						_availableRooms.RemoveAt(0);
+					}
+				}
+				while (_availableRooms.Count > 0 && (_pendingPlayers.Count - idxOffset) > 1);
+			}
+		}
+
+		private void UpdateStatus(double deltaTime)
+		{
+			foreach (var client in _clients)
+			{
+				break;
 			}
 		}
 
@@ -186,10 +217,10 @@ namespace GameServer
 				case (int)Message.Disconnect:
 					// TODO save data to database
 					_clients.Remove(clientPlayer);
-					_dbConnector.Logout(clientPlayer.Account);
+					_dbConnector.Logout(ref clientPlayer.Account);
 					clientPlayer.Disconnect();
 
-					Log.Information("Total Connected Client: {0}", _clients.Count.ToString());
+					Log.Information("總連線數:{0}", _clients.Count.ToString());
 					break;
 
 				case (int)Message.SignIn:
@@ -198,8 +229,10 @@ namespace GameServer
 					clientPlayer.Account.Password = messageBuffer.ReadString();
 
 					messageBuffer.Reset();
-				
-					if (_dbConnector.Login(clientPlayer.Account))
+
+					_dbConnector.Login(ref clientPlayer.Account);
+
+					if (clientPlayer.Account.IsOnline)
 					{
 						messageBuffer.WriteInt((int)Message.SignInSuccess);
 					}
@@ -207,7 +240,7 @@ namespace GameServer
 					{
 						messageBuffer.WriteInt((int)Message.SignInFail);
 					}
-
+					
 					SendMessage(clientPlayer, messageBuffer.Buffer);
 					break;
 
@@ -215,8 +248,6 @@ namespace GameServer
 
 					// TODO
 					// Add to pend list
-
-					Log.Information("Some Start to pend");
 					_pendingPlayers.Add(clientPlayer);
 
 					break;
@@ -233,14 +264,14 @@ namespace GameServer
 
 			foreach (var client in _clients)
 			{
-				_dbConnector.Logout(client.Account);
+				_dbConnector.Logout(ref client.Account);
 				client.Disconnect();
 			}
 
 			_clients.Clear();
 			_dbConnector.Close();
 
-			Log.Information("Finish!!");
+			Log.Information("關機!!");
 			Thread.Sleep(100);
 		}
 

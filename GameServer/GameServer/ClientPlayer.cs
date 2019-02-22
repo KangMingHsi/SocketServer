@@ -12,6 +12,8 @@ namespace GameServer
 		public delegate void ClientMessageHandler(byte[] message);
 		public ClientAccount Account;
 
+		public double PendingTime = 0.0;
+
 		private Server.ServerMessageHandler _serverMessageHandler;
 
 		private ClientNetwork _network;

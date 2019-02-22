@@ -10,7 +10,7 @@ namespace BotClient
 	{
 		private event ClientPlayer.MessageHandler _messageHandler;
 
-		private readonly byte[] _data = new byte[1024];
+		private readonly byte[] _data = new byte[2048];
 		private int _bytesRead = 0;
 		private bool _isDisconnect = false;
 

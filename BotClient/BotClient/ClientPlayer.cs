@@ -69,7 +69,7 @@ namespace BotClient
 						// TODO match data...
 						IsGaming = true;
 
-						Log.Information("Game Start");
+						Log.Information("遊戲開始");
 						_messageBuffer.Reset(new byte[8]);
 
 						MyAction = GetAction();
@@ -82,10 +82,10 @@ namespace BotClient
 						int opponentAction = _messageBuffer.ReadInt();
 						bool win = Game.GameResult(MyAction, opponentAction) > 0;
 
-						Log.Information("Win:{0}", win.ToString());
+						Log.Information("{0}", (win ? "獲勝" : "輸掉"));
 						break;
 					case (int)Message.GameOver:
-						Log.Information("GameOver!");
+						Log.Information("結束!");
 						IsGaming = false;
 						break;
 
