@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading;
-using System.IO;
 
 using GameNetwork;
 using Serilog;
@@ -16,7 +15,10 @@ namespace BotClient
 						.WriteTo.Console()
 						.CreateLogger();
 
-			TestMaxClient(2);
+
+			RPSGame game = new RPSGame();
+
+
 			Thread.Sleep(1000);
 		}
 
@@ -32,7 +34,7 @@ namespace BotClient
 				clients.Add(new ClientPlayer());
 				Thread.Sleep(10);
 			}
-
+			
 			for (int i = 0; i < clientNum; ++i)
 			{
 				clients[i].ConnectToServer();

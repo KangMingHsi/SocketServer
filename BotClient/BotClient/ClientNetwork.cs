@@ -11,17 +11,14 @@ namespace BotClient
 {
 	class ClientNetwork
 	{
-		public TcpClient Client { get { return _tcpClient; } }
+		public TcpClient Client { get; }
 
 		private ClientPlayer.MessageHandler _handler;
+		public bool IsConnect { get; private set; }
 
 		private IPAddress _iPAddress;
 		private int _port;
 
-		private byte[] _data = new byte[5000];
-		private int _bytesRead = 0;
-
-		private TcpClient _tcpClient;
 		private ClientReadTask _readTask;
 		private ClientWriteTask _writeTask;
 
@@ -30,32 +27,33 @@ namespace BotClient
 		{
 			_iPAddress = IPAddress.Parse(server);
 			_port = port;
-			_tcpClient = new TcpClient();
+			Client = new TcpClient();
 
 			_handler = handle;
+			IsConnect = true;
 		}
 
 		public void Connect()
 		{
 			try
 			{ 
-				_tcpClient.BeginConnect(_iPAddress, _port, ConnectCallback, null);
+				Client.BeginConnect(_iPAddress, _port, ConnectCallback, null);
 			}
 			catch (Exception e)
 			{
-				Log.Error(e.StackTrace.ToString());
+				ProcessException(e);
 			}
 		}
 
 		private void ConnectCallback(IAsyncResult r)
 		{
-			_tcpClient.EndConnect(r);
+			Client.EndConnect(r);
 
-			if (_tcpClient.Connected)
+			if (Client.Connected)
 			{
 				_readTask = new ClientReadTask(this, _handler);
 				_writeTask = new ClientWriteTask(this, _handler);
-				ThreadPool.QueueUserWorkItem(StartReadTask, _tcpClient);
+				ThreadPool.QueueUserWorkItem(StartReadTask, Client);
 			}
 			else
 			{
@@ -65,9 +63,9 @@ namespace BotClient
 
 		public void Stop()
 		{
-			_readTask.Stop();
+			IsConnect = false;
 
-			while(!_writeTask.IsComplete)
+			while (!_writeTask.IsComplete)
 			{
 				Thread.Sleep(1);
 			}
@@ -84,7 +82,7 @@ namespace BotClient
 			}
 			catch (Exception e)
 			{
-				Log.Information(e.StackTrace.ToString());
+				ProcessException(e);
 			}
 			
 		}
@@ -96,7 +94,25 @@ namespace BotClient
 
 		private void StartReadTask(object message)
 		{
-			_readTask.Begin();
+			try
+			{
+				_readTask.Read();
+			}
+			catch (SocketException e)
+			{
+				if (e.NativeErrorCode.Equals(10035))
+				{
+					IsConnect = true;
+				}
+				else
+				{
+					ProcessException(e);
+				}
+			}
+			catch (Exception e)
+			{
+				ProcessException(e);
+			}
 		}
 
 		private void StartWriteTask(object message)
@@ -105,15 +121,41 @@ namespace BotClient
 			{
 				Thread.Sleep(1);
 			}
-			_writeTask.Write(message as byte[]);
+
+			try
+			{
+				_writeTask.Write(message as byte[]);
+			}
+			catch (SocketException e)
+			{
+				if (e.NativeErrorCode.Equals(10035))
+				{
+					IsConnect = true;
+				}
+				else
+				{
+					ProcessException(e);
+				}
+			}
+			catch (Exception e)
+			{
+				ProcessException(e);
+			}
 		}
 
 		private void Cleanup()
 		{
-			if (_tcpClient != null)
+			if (Client != null)
 			{
-				_tcpClient.Close();
+				Client.Close();
 			}
+		}
+
+		private void ProcessException(Exception ex)
+		{
+			Log.Error("Error: " + ex.Message);
+			Log.Error("~Disconnect~");
+			Stop();
 		}
 	}
 

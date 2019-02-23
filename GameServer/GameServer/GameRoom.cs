@@ -9,23 +9,46 @@ namespace GameServer
 {
 	class GameRoom
 	{
-		public int RoomId;
 		public bool IsOver { get; private set; } = true;
 
 		private static int[,] _winnerLookUpTable = null;
-		private Server _server;
 
+		private Server _server;
 		private ClientPlayer _leftPlayer = null;
 		private ClientPlayer _rightPlayer = null;
 
 		private MessageBuffer _messageBuffer;
 
-		public GameRoom(Server server)
+		private int _roomId;
+
+		public GameRoom(Server server, int id)
 		{
 			InitWinnerLookUpTable();
 
 			_server = server;
 			_messageBuffer = new MessageBuffer(new byte[8]);
+
+			_roomId = id;
+		}
+
+		public override bool Equals(object obj)
+		{
+			if (obj == null || GetType() != obj.GetType())
+			{
+				return false;
+			}
+
+			return _roomId.Equals((obj as GameRoom).GetId());
+		}
+
+		public override int GetHashCode()
+		{
+			return base.GetHashCode();
+		}
+
+		public int GetId()
+		{
+			return _roomId;
 		}
 
 		public void GameStart()
@@ -129,8 +152,7 @@ namespace GameServer
 			_messageBuffer.Reset();
 			_messageBuffer.WriteInt((int)Message.GameOver);
 
-			_leftPlayer.SendGameData(_messageBuffer.Buffer);
-			_rightPlayer.SendGameData(_messageBuffer.Buffer);
+			Broadcast(_messageBuffer.Buffer);
 
 			var dbHelper = _server.GetDatabaseHelper();
 
@@ -148,7 +170,7 @@ namespace GameServer
 				Log.Information("玩家{0}獲勝", _rightPlayer.Account.Username);
 			}
 
-			Log.Information("玩家{0}得分:{2}\n玩家{1}得分:{3}", _leftPlayer.Account.Username, _rightPlayer.Account.Username
+			Log.Information("玩家{0}得分:{2}, 玩家{1}得分:{3}", _leftPlayer.Account.Username, _rightPlayer.Account.Username
 																,_leftPlayer.Account.Score.ToString(), _rightPlayer.Account.Score.ToString());
 
 			dbHelper.UpdateScore(_leftPlayer.Account);

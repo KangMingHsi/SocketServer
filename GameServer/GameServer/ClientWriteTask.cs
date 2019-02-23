@@ -7,8 +7,8 @@ namespace GameServer
 {
 	class ClientWriteTask
 	{
-		public bool IsComplete { get { return _isComplete; } }
-		// TODO check whether this handler is necessary
+		public bool IsComplete { get; private set; }
+		
 		private event ClientPlayer.ClientMessageHandler _messageHandler;
 
 		private byte[] _data;
@@ -16,36 +16,29 @@ namespace GameServer
 		private ClientNetwork _client;
 		private NetworkStream _stream;
 
-		private bool _isComplete;
-
 		public ClientWriteTask(ClientNetwork client, ClientPlayer.ClientMessageHandler handler)
 		{
 			_client = client;
 			_stream = _client.Client.GetStream();
-			_messageHandler = new ClientPlayer.ClientMessageHandler(handler);
+			_messageHandler = handler;
 
 			_data = null;
-			_isComplete = true;
+			IsComplete = true; 
 		}
 
 		public void Write(byte[] message)
 		{
-			_data = message;
-			_isComplete = false;
-			Begin();
-		}
-
-		private void Begin()
-		{
 			try
 			{
+				_data = message;
+				IsComplete = false;
 				Write();
 			}
-			catch (Exception e)
+			catch
 			{
-				ProcessException(e);
+				IsComplete = true;
+				throw;
 			}
-
 		}
 
 		private void Write()
@@ -58,19 +51,13 @@ namespace GameServer
 			try
 			{
 				_stream.EndWrite(r);
-				_isComplete = true;
+				IsComplete = true;
 			}
-			catch (Exception ex)
+			catch
 			{
-				ProcessException(ex);
+				IsComplete = true;
+				_messageHandler(null);
 			}
-		}
-
-		private void ProcessException(Exception ex)
-		{
-			_isComplete = true;
-			Log.Error("Error: " + ex.Message);
-			_client.Stop();
 		}
 	}
 }

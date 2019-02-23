@@ -3,17 +3,15 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 
 using GameNetwork;
-
+using Serilog;
 
 namespace GameServer
 {
 	class ClientPlayer
 	{
 		public delegate void ClientMessageHandler(byte[] message);
+
 		public ClientAccount Account;
-
-		public double PendingTime = 0.0;
-
 		private Server.ServerMessageHandler _serverMessageHandler;
 
 		private ClientNetwork _network;
@@ -45,29 +43,61 @@ namespace GameServer
 
 		public void SendGameData(byte[] message)
 		{
-			_network.Send(message);
+			if (_network != null)
+			{
+				_network.Send(message);
+			}
 		}
 
 		public void Disconnect()
 		{
-			_network.Stop();
+			if (_network != null)
+			{
+				_network.Stop();
+				_network = null;
+			}
+		}
+
+		public void Update(double deltaTime)
+		{
+			if (_network != null)
+			{
+				_network.CheckConnect(deltaTime);
+
+				if (_network.IsConnect)
+				{
+
+				}
+				else
+				{
+					Log.Information("斷線");
+					_serverMessageHandler(this, BitConverter.GetBytes((int)Message.Disconnect));
+				}
+			}
 		}
 
 		private void HandleMessage(byte[] message)
 		{
-			_messageBuffer.Reset(message);
-			int messageType = _messageBuffer.ReadInt();
-
-			switch (messageType)
+			if (message != null)
 			{
-				case (int)Message.GameAction:
-					int action = _messageBuffer.ReadInt();
-					_actions.Add(action);
-					break;
+				_messageBuffer.Reset(message);
+				int messageType = _messageBuffer.ReadInt();
 
-				default:
-					_serverMessageHandler(this, message);
-					break;
+				switch (messageType)
+				{
+					case (int)Message.GameAction:
+						int action = _messageBuffer.ReadInt();
+						_actions.Add(action);
+						break;
+
+					default:
+						_serverMessageHandler(this, message);
+						break;
+				}
+			}
+			else
+			{
+				_serverMessageHandler(this, BitConverter.GetBytes((int)Message.Disconnect));
 			}
 		}
 	}

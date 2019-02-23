@@ -10,16 +10,21 @@ namespace GameServer
 		{
 			get
 			{
-				var value = (DateTime.Now - _lastUpdateTime).TotalSeconds;
-				_lastUpdateTime = DateTime.Now;
-				return value;
+				return _deltaTime;
 			}
 		}
 
 		private DateTime _lastUpdateTime;
+		private double _deltaTime;
 
 		public void Start()
 		{
+			_lastUpdateTime = DateTime.Now;
+		}
+
+		public void Update()
+		{
+			_deltaTime = (DateTime.Now - _lastUpdateTime).TotalSeconds;
 			_lastUpdateTime = DateTime.Now;
 		}
 

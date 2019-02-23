@@ -16,7 +16,6 @@ namespace GameServer
 		public readonly int WinScore = 5;
 		public readonly int LoseSocre = -3;
 		public readonly int MaxGameRoom = 50;
-		public readonly double UpdateInterval = 60.0;
 
 		private readonly int MaxClient = 100;
 
@@ -37,39 +36,35 @@ namespace GameServer
 
 		// TODO create new class to handle byte[] transfer between message
 
-		public Server(string ip, int port)
+		public Server(string serverConfigPath, string postgresConfigPath, string redisConfigPath)
 		{
-			_timer = new Timer();
+			string[] serverConfig = Config.ReadServerConfig(serverConfigPath);
+			string[] postgresConfig = Config.ReadPostgresConfig(postgresConfigPath);
+			string[] redisConfig = Config.ReadRedisConfig(redisConfigPath);
 
-			_clients = new List<ClientPlayer>();
-
-			_port = port;
-			_iPAddress = IPAddress.Parse(ip);
-
-			// TODO Need to use param
-			string[] postgresConfig = new string[] { "127.0.0.1", "5432", "sean_kang", "jfigames", "train" };
-			string[] redisConfig = new string[] { "127.0.0.1", "6379" };
-
-			_databaseHelper = new DatabaseHelper(postgresConfig, redisConfig);
+			_iPAddress = IPAddress.Parse(serverConfig[0]);
+			_port = Int32.Parse(serverConfig[1]);
 
 			_tcpListener = new TcpListener(_iPAddress, _port);
 			_tcpListener.Start();
 
+			_databaseHelper = new DatabaseHelper(postgresConfig, redisConfig);
+
 			Log.Information("伺服器啟動在Port:{0}", _port.ToString());
 
-			ThreadPool.SetMinThreads(MaxClient * 2 + 4, MaxClient * 2 + 4);
+			ThreadPool.SetMinThreads(MaxClient * 3, MaxClient * 3);
 		}
 
 		public void Run()
 		{
 			try
 			{
-				SetupGameRooms(MaxGameRoom);
+				SetupGame(MaxGameRoom);
 				_timer.Start();
 
 				while (!_isFinish)
 				{
-					double deltaTime = _timer.DeltaTime;
+					_timer.Update();
 
 					ServerCommandHandle();
 					ListenToClient();
@@ -77,9 +72,8 @@ namespace GameServer
 					CheckGameIsOver();
 					MatchPendingPlayers();
 
-					UpdateStatus(deltaTime);
-
-					UpdateData(deltaTime);
+					UpdateStatus(_timer.DeltaTime);
+					UpdateData(_timer.DeltaTime);
 
 					Thread.Sleep(1);
 				}
@@ -100,17 +94,19 @@ namespace GameServer
 			return _databaseHelper;
 		}
 
-		private void SetupGameRooms(int roomCnt)
+		private void SetupGame(int roomCnt)
 		{
-			Log.Information("初始化房間");
+			Log.Information("初始化遊戲服務");
 
+			_timer = new Timer();
+			_clients = new List<ClientPlayer>();
 			_pendingPlayers = new List<ClientPlayer>();
 			_gamingRooms = new List<GameRoom>();
 			_availableRooms = new List<GameRoom>();
 
 			for (int room = 0; room < roomCnt; ++room)
 			{
-				_availableRooms.Add(new GameRoom(this)); 
+				_availableRooms.Add(new GameRoom(this, room)); 
 			}
 		}
 
@@ -200,9 +196,9 @@ namespace GameServer
 
 		private void UpdateStatus(double deltaTime)
 		{
-			foreach (var client in _clients)
+			for (int idx = 0; idx < _clients.Count; ++idx)
 			{
-				break;
+				_clients[idx].Update(deltaTime);
 			}
 		}
 
@@ -226,9 +222,14 @@ namespace GameServer
 			{
 				case (int)Message.Disconnect:
 					// TODO save data to database
-					_clients.Remove(clientPlayer);
-					_databaseHelper.Logout(ref clientPlayer.Account);
+
+					if (clientPlayer.Account.IsOnline)
+					{
+						_databaseHelper.Logout(ref clientPlayer.Account);
+					}
+
 					clientPlayer.Disconnect();
+					_clients.Remove(clientPlayer);
 
 					Log.Information("總連線數:{0}", _clients.Count.ToString());
 					break;

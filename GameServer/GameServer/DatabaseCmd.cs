@@ -17,32 +17,32 @@ namespace GameServer
 
 		public static string GetLoginCmd(string usr)
 		{
-			return string.Format("UPDATE player SET status=true WHERE username='{0}' and status=false;", usr);
+			return string.Format("UPDATE player SET status=true WHERE username=E'{0}' and status=false;", usr);
 		}
 
 		public static string GetLogoutCmd(string usr)
 		{
-			return string.Format("UPDATE player SET status=false WHERE username='{0}' and status=true;", usr);
+			return string.Format("UPDATE player SET status=false WHERE username=E'{0}' and status=true;", usr);
 		}
 
 		public static string GetUpdateScoreCmd(string usr, int score)
 		{
-			return string.Format("UPDATE player SET score={1} WHERE username='{0}';", usr, score.ToString());
+			return string.Format("UPDATE player SET score={1} WHERE username=E'{0}';", usr, score.ToString());
 		}
 
 		public static string GetUpdateScoreCmd(string usr, string score)
 		{
-			return string.Format("UPDATE player SET score={1} WHERE username='{0}';", usr, score);
+			return string.Format("UPDATE player SET score={1} WHERE username=E'{0}';", usr, score);
 		}
 
 		public static string GetSelectScoreCmd(string usr)
 		{
-			return string.Format("SELECT score FROM player WHERE username='{0}';", usr);
+			return string.Format("SELECT score FROM player WHERE username=E'{0}';", usr);
 		}
 
 		public static string GetSelectPasswordCmd(string usr)
 		{
-			return string.Format("SELECT password FROM player WHERE username='{0}';", usr);
+			return string.Format("SELECT password FROM player WHERE username=E'{0}';", usr);
 		}
 
 

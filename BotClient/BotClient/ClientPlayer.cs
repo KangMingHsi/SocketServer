@@ -88,7 +88,10 @@ namespace BotClient
 						Log.Information("結束!");
 						IsGaming = false;
 						break;
+					case (int)Message.NoMeaning:
 
+						Log.Information("Ack");
+						break;
 					default:
 						break;
 				}

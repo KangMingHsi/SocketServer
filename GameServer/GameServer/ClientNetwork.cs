@@ -1,35 +1,42 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Net.Sockets;
 using System.Threading;
+
+using Serilog;
+using GameNetwork;
 
 namespace GameServer
 {
 	class ClientNetwork
 	{
-		//public delegate void MessageHandler(ClientNetwork client, byte[] message);
-		public TcpClient Client { get { return _tcpClient; } }
+		public TcpClient Client { get; }
 
 		public bool CanClose { get { return _writeTask.IsComplete; } }
+		public bool IsConnect { get; private set; }
 
-		private TcpClient _tcpClient;
 		private ClientReadTask _readTask;
 		private ClientWriteTask _writeTask;
 
+		private double _lastUpdateTime = 0.0;
+		private double _currentTime = 0.0;
+		private readonly double _updateInterval = 1.0;
+
 		public ClientNetwork(TcpClient client, ClientPlayer.ClientMessageHandler handler)
 		{
-			_tcpClient = client;
+			Client = client;
 
-			_readTask = new ClientReadTask(this, handler);
-			_writeTask = new ClientWriteTask(this, handler);
+			var msgHandle = new ClientPlayer.ClientMessageHandler(handler);
+			_readTask = new ClientReadTask(this, msgHandle);
+			_writeTask = new ClientWriteTask(this, msgHandle);
 
-			ThreadPool.QueueUserWorkItem(StartReadTask, client);
+			ThreadPool.QueueUserWorkItem(StartReadTask, null);
+
+			IsConnect = true;
 		}
 
 		public void Stop()
 		{
-			_readTask.Stop();
+			IsConnect = false;
 
 			while (!CanClose)
 			{
@@ -44,22 +51,76 @@ namespace GameServer
 			ThreadPool.QueueUserWorkItem(StartWriteTask, message);
 		}
 
+		public void CheckConnect(double deltaTime)
+		{
+			_currentTime += deltaTime;
+
+			if ((_currentTime - _lastUpdateTime) > _updateInterval)
+			{
+				_lastUpdateTime = _currentTime;
+				Send(BitConverter.GetBytes((int)Message.NoMeaning));
+			}
+		}
+
 		private void StartReadTask(object message)
 		{
-			_readTask.Begin();
+			try
+			{
+				_readTask.Read();
+			}
+			catch (SocketException e)
+			{
+				if (e.NativeErrorCode.Equals(10035))
+				{
+					IsConnect = true;
+				}
+				else
+				{
+					ProcessException(e);
+				}
+			}
+			catch (Exception e)
+			{
+				ProcessException(e);
+			}
 		}
 
 		private void StartWriteTask(object message)
 		{
-			_writeTask.Write(message as byte[]);
+			try
+			{
+				_writeTask.Write(message as byte[]);
+			}
+			catch (SocketException e)
+			{
+				if (e.NativeErrorCode.Equals(10035))
+				{
+					IsConnect = true;
+				}
+				else
+				{
+					ProcessException(e);
+				}
+			}
+			catch (Exception e)
+			{
+				ProcessException(e);
+			}
 		}
 
 		private void Cleanup()
 		{
-			if (_tcpClient != null)
+			if (Client != null)
 			{
-				_tcpClient.Close();
+				Client.Close();
 			}
+		}
+
+		private void ProcessException(Exception ex)
+		{
+			Log.Error("Error: " + ex.Message);
+			Log.Error("~Disconnect~");
+			Stop();
 		}
 	}
 }

@@ -19,7 +19,7 @@ namespace GameServer
 
 		public void Close()
 		{
-			Log.Warning("DB is closed!");
+			
 		}
 
 		public void Login(ref ClientAccount account)
@@ -28,7 +28,6 @@ namespace GameServer
 			{
 				using (var conn = new NpgsqlConnection(_connectionString))
 				{
-					Log.Information("帳號登入中");
 					conn.Open();
 					using (var cmd = new NpgsqlCommand())
 					{
@@ -49,10 +48,8 @@ namespace GameServer
 							}
 						}
 
-						Log.Information("驗證密碼中");
 						if (_rsa.Verification(storedPassword, account.Password))
 						{
-							Log.Information("驗證通過");
 							cmd.CommandText = DatabaseCmd.GetLoginCmd(account.Username);
 							account.IsOnline = (cmd.ExecuteNonQuery()) > 0;
 
@@ -86,9 +83,6 @@ namespace GameServer
 					using (var cmd = new NpgsqlCommand())
 					{
 						cmd.Connection = conn;
-						cmd.CommandText = DatabaseCmd.GetUpdateScoreCmd(account.Username, account.Score);
-						cmd.ExecuteNonQuery();
-
 						cmd.CommandText = DatabaseCmd.GetLogoutCmd(account.Username);
 						cmd.ExecuteNonQuery();
 

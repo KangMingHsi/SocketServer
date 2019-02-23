@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using Serilog;
 
 namespace GameServer
 {
@@ -26,8 +24,9 @@ namespace GameServer
 		{
 			_currentTime += deltaTime;
 
-			if (_currentTime - _lastUpdateTime > _updateInterval)
+			if ((_currentTime - _lastUpdateTime) > _updateInterval)
 			{
+				Log.Warning("同步資料");
 				_lastUpdateTime = _currentTime;
 
 				var scoreTable = _redisConnector.GetAllScores();
@@ -41,27 +40,30 @@ namespace GameServer
 
 		public void Login(ref ClientAccount account)
 		{
+			Log.Information("帳號登入中");
 			_postgresConnector.Login(ref account);
 
 			if (account.IsOnline)
 			{
+				Log.Information("驗證通過並初始化資料");
 				_redisConnector.UpdateScoreTable(account);
 			}
 		}
 
 		public void Logout(ref ClientAccount account)
 		{
+			Log.Information("帳號登出");
 			_postgresConnector.Logout(ref account);
 		}
 
 		public void UpdateScore(ClientAccount account)
 		{
-			//_postgresConnector.UpdateScore(account);
 			_redisConnector.UpdateScoreTable(account);
 		}
 
 		public void Close()
 		{
+			Log.Information("關閉資料庫");
 			_postgresConnector.Close();
 			_redisConnector.Close();
 		}
