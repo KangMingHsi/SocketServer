@@ -1,5 +1,7 @@
 ﻿using Serilog;
 
+using GameNetwork;
+
 namespace GameServer
 {
 	class DatabaseHelper

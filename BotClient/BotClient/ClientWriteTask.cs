@@ -20,7 +20,7 @@ namespace BotClient
 		{
 			_client = client;
 			_stream = _client.Client.GetStream();
-			_messageHandler = handler;
+			_messageHandler = new ClientPlayer.MessageHandler(handler);
 
 			_data = null;
 			IsComplete = true;
@@ -54,7 +54,7 @@ namespace BotClient
 				IsComplete = true;
 
 			}
-			catch (Exception ex)
+			catch
 			{
 				IsComplete = true;
 				_messageHandler(null);

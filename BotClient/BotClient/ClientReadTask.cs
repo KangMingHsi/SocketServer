@@ -12,7 +12,6 @@ namespace BotClient
 
 		private byte[] _data = new byte[2048];
 		private int _bytesRead = 0;
-		private bool _isDisconnect = false;
 
 		private NetworkStream _stream;
 		private ClientNetwork _client;
@@ -21,7 +20,7 @@ namespace BotClient
 		{
 			_client = client;
 			_stream = _client.Client.GetStream();
-			_messageHandler = handler;
+			_messageHandler = new ClientPlayer.MessageHandler(handler);
 		}
 
 		public void Read()

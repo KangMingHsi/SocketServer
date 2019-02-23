@@ -29,8 +29,8 @@ namespace BotClient
 			_port = port;
 			Client = new TcpClient();
 
-			_handler = handle;
-			IsConnect = true;
+			_handler = new ClientPlayer.MessageHandler(handle);
+			IsConnect = false;
 		}
 
 		public void Connect()
@@ -51,14 +51,21 @@ namespace BotClient
 
 			if (Client.Connected)
 			{
-				_readTask = new ClientReadTask(this, _handler);
-				_writeTask = new ClientWriteTask(this, _handler);
+				IsConnect = true;
+
+				_readTask = new ClientReadTask(this, MessageHandle);
+				_writeTask = new ClientWriteTask(this, MessageHandle);
 				ThreadPool.QueueUserWorkItem(StartReadTask, Client);
 			}
 			else
 			{
 				Log.Information("連線失敗!");
 			}
+		}
+
+		public void Fail()
+		{
+			IsConnect = false;
 		}
 
 		public void Stop()
@@ -156,6 +163,38 @@ namespace BotClient
 			Log.Error("Error: " + ex.Message);
 			Log.Error("~Disconnect~");
 			Stop();
+		}
+
+		private void MessageHandle(byte[] message)
+		{
+			if (message != null)
+			{
+				int messageType = BitConverter.ToInt32(message, 0);
+				switch (messageType)
+				{
+					case (int)Message.Disconnect:
+						Stop();
+						break;
+					case (int)Message.SignInSuccess:
+						Log.Information("連線成功!");
+						break;
+					case (int)Message.SignInFail:
+						Log.Information("連線失敗!");
+						Stop();
+						break;
+					case (int)Message.NoMeaning:
+
+						Log.Information("Ack");
+						break;
+					default:
+						_handler(message);
+						break;
+				}
+			}
+			else
+			{
+				_handler(null);
+			}
 		}
 	}
 

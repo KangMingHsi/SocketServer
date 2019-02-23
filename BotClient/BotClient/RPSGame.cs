@@ -10,12 +10,17 @@ namespace BotClient
 	{
 		private static int[,] _winnerLookUpTable = null;
 
-		private ClientPlayer _leftPlayer = null;
-		private ClientPlayer _rightPlayer = null;
+		private ClientPlayer _myPlayer = null;
+		private ClientPlayer _opponentPlayer = null;
 
 		public RPSGame()
 		{
 			InitWinnerLookUpTable();
+		}
+
+		public void InitGame(ClientPlayer myPlayer)
+		{
+			_myPlayer = myPlayer;
 		}
 
 		public void GameLoop()
@@ -26,7 +31,7 @@ namespace BotClient
 			{
 				isOver = true;
 
-				int result = GameResult(_leftPlayer.GetAction(), _rightPlayer.GetAction());
+				int result = GameResult(_myPlayer.GetAction(), _opponentPlayer.GetAction());
 
 				if (result == 1)
 				{
@@ -48,25 +53,18 @@ namespace BotClient
 
 		public bool AddPlayer(ClientPlayer player)
 		{
-			if (_leftPlayer != null && _rightPlayer != null)
+			if (_opponentPlayer == null)
 			{
-				return false;
-			}
-			else if (_leftPlayer == null)
-			{
-				_leftPlayer = player;
-			}
-			else
-			{
-				_rightPlayer = player;
+				_opponentPlayer = player;
+				return true;
 			}
 
-			return true;
+			return false;
 		}
 
 		public bool IsReady()
 		{
-			return (_leftPlayer != null) && (_rightPlayer != null);
+			return  (_opponentPlayer != null);
 		}
 
 		// 0 = 石頭, 1 = 剪刀, 2 = 布
@@ -101,8 +99,7 @@ namespace BotClient
 
 		private void GameOver()
 		{
-			_leftPlayer = null;
-			_rightPlayer = null;
+			_opponentPlayer = null;
 		}
 	}
 }

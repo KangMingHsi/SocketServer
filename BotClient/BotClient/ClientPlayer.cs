@@ -10,14 +10,19 @@ namespace BotClient
 	class ClientPlayer
 	{
 		public delegate void MessageHandler(byte[] message);
+		public bool IsOnline { get { return _network.IsConnect; } }
+
+		public ClientAccount Account;
 
 		private ClientNetwork _network;
 		private MessageBuffer _messageBuffer;
 		private Random _decisionPolicy;
 
-		public ClientPlayer()
+		public ClientPlayer(string configPath)
 		{
-			_network = new ClientNetwork("127.0.0.1", 36000, MessageHandle);
+			string[] config = Config.ReadPlayerConfig(configPath);
+
+			_network = new ClientNetwork(config[0], Int32.Parse(config[1]), MessageHandle);
 			_decisionPolicy = new Random();
 			_messageBuffer = new MessageBuffer(null);
 		}
@@ -25,7 +30,23 @@ namespace BotClient
 		public void ConnectToServer()
 		{
 			_network.Connect();
-			Thread.Sleep(1);
+
+			byte[] accountData = AccountToBytes(Account);
+			SendMessageToServer(accountData);
+		}
+
+		// TODO tmp put here
+		private byte[] AccountToBytes(ClientAccount account)
+		{
+			RSAClientProvider rsa = new RSAClientProvider();
+
+			MessageBuffer messageBuffer = new MessageBuffer(new byte[2048]);
+
+			messageBuffer.WriteInt((int)Message.SignIn);
+			messageBuffer.WriteString(account.Username);
+			messageBuffer.WriteString(rsa.Encrypt(account.Password));
+
+			return messageBuffer.Buffer;
 		}
 
 		public void SendMessageToServer(byte[] message)
