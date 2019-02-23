@@ -1,10 +1,31 @@
 ﻿using System;
+using System.IO;
 using System.Security.Cryptography;
 using System.Xml;
 
 namespace GameNetwork
 {
-	public static class RSAHelper
+	class RSAClientProvider
+	{
+		private string _key;
+
+		public RSAClientProvider()
+		{
+			using (FileStream file = new FileStream("PublicKey.xml", FileMode.Open, FileAccess.Read))
+			{
+				byte[] bytes = new byte[1024];
+				file.Read(bytes, 0, 1024);
+				_key = System.Text.Encoding.ASCII.GetString(bytes);
+			}
+		}
+
+		public string Encrypt(string password)
+		{
+			return RSAHelper.Encrypt(_key, password);
+		}
+	}
+
+	internal static class RSAHelper
 	{
 		public static void FromXmlString(this RSACryptoServiceProvider rsa, string xmlString)
 		{

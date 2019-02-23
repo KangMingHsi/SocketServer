@@ -23,14 +23,7 @@ namespace BotClient
 		static void TestMaxClient(int clientNum)
 		{
 			List<ClientPlayer> clients = new List<ClientPlayer>();
-			string key;
-
-			using (FileStream file = new FileStream("PublicKey.xml", FileMode.Open, FileAccess.Read))
-			{
-				byte[] bytes = new byte[1024];
-				file.Read(bytes, 0, 1024);
-				key = System.Text.Encoding.ASCII.GetString(bytes);
-			}
+			RSAClientProvider rsa = new RSAClientProvider();
 
 			ThreadPool.SetMinThreads(clientNum * 2 + 4, clientNum * 2 + 4);
 
@@ -56,7 +49,7 @@ namespace BotClient
 				messageBuffer.Reset();
 				messageBuffer.WriteInt((int)Message.SignIn);
 				messageBuffer.WriteString("player"+i.ToString());
-				messageBuffer.WriteString(RSAHelper.Encrypt(key, "123456"));
+				messageBuffer.WriteString(rsa.Encrypt("123456"));
 
 				clients[i].SendMessageToServer(messageBuffer.Buffer);
 				Thread.Sleep(10);

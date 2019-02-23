@@ -132,7 +132,7 @@ namespace GameServer
 			_leftPlayer.SendGameData(_messageBuffer.Buffer);
 			_rightPlayer.SendGameData(_messageBuffer.Buffer);
 
-			var dbConnector = _server.GetDatabaseConnectior();
+			var dbHelper = _server.GetDatabaseHelper();
 
 			if (result > 0)
 			{
@@ -151,8 +151,8 @@ namespace GameServer
 			Log.Information("玩家{0}得分:{2}\n玩家{1}得分:{3}", _leftPlayer.Account.Username, _rightPlayer.Account.Username
 																,_leftPlayer.Account.Score.ToString(), _rightPlayer.Account.Score.ToString());
 
-			dbConnector.UpdateScore(_leftPlayer.Account);
-			dbConnector.UpdateScore(_rightPlayer.Account);
+			dbHelper.UpdateScore(_leftPlayer.Account);
+			dbHelper.UpdateScore(_rightPlayer.Account);
 
 			_leftPlayer = null;
 			_rightPlayer = null;

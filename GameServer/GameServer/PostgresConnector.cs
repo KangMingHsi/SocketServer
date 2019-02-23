@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 
 using Serilog;
 using Npgsql;
@@ -7,21 +6,15 @@ using GameNetwork;
 
 namespace GameServer
 {
-	class DatabaseConnector
+	class PostgresConnector
 	{
 		private string _connectionString;
-		private string _key;
+		private RSAServerProvider _rsa;
 		// config sequence: ip, port, id, password, db
-		public DatabaseConnector(string[] config)
+		public PostgresConnector(string[] config)
 		{
-			_connectionString = DatabaseCmd.GetConnectionConfig(config);
-
-			using (FileStream file = new FileStream("PrivateKey.xml", FileMode.Open, FileAccess.Read))
-			{
-				byte[] bytes = new byte[1024];
-				file.Read(bytes, 0, 1024);
-				_key = System.Text.Encoding.ASCII.GetString(bytes);
-			}
+			_connectionString = DatabaseCmd.GetPostgresConfig(config);
+			_rsa = new RSAServerProvider();
 		}
 
 		public void Close()
@@ -56,7 +49,8 @@ namespace GameServer
 							}
 						}
 
-						if (Verification(storedPassword, account.Password))
+						Log.Information("驗證密碼中");
+						if (_rsa.Verification(storedPassword, account.Password))
 						{
 							Log.Information("驗證通過");
 							cmd.CommandText = DatabaseCmd.GetLoginCmd(account.Username);
@@ -134,10 +128,27 @@ namespace GameServer
 			}
 		}
 
-		private bool Verification(string storedPassword, string accountPassword)
+		public void UpdateScore(string username, string score)
 		{
-			Log.Information("驗證密碼中");
-			return RSAHelper.Decrypt(_key, storedPassword).Equals(RSAHelper.Decrypt(_key, accountPassword));
+			try
+			{
+				using (var conn = new NpgsqlConnection(_connectionString))
+				{
+					conn.Open();
+					using (var cmd = new NpgsqlCommand())
+					{
+						cmd.Connection = conn;
+						cmd.CommandText = DatabaseCmd.GetUpdateScoreCmd(username, score);
+						cmd.ExecuteNonQuery();
+					}
+					conn.Close();
+				}
+			}
+			catch (Exception e)
+			{
+				Log.Error(e.Message);
+				Close();
+			}
 		}
 	}
 }

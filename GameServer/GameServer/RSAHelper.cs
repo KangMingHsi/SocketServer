@@ -1,10 +1,30 @@
 ﻿using System;
+using System.IO;
 using System.Security.Cryptography;
 using System.Xml;
 
 namespace GameNetwork
 {
-	public static class RSAHelper
+	class RSAServerProvider
+	{
+		private string _key;
+
+		public RSAServerProvider()
+		{
+			using (FileStream file = new FileStream("PrivateKey.xml", FileMode.Open, FileAccess.Read))
+			{
+				byte[] bytes = new byte[1024];
+				file.Read(bytes, 0, 1024);
+				_key = System.Text.Encoding.ASCII.GetString(bytes);
+			}
+		}
+		public bool Verification(string storedPassword, string accountPassword)
+		{
+			return RSAHelper.Decrypt(_key, storedPassword).Equals(RSAHelper.Decrypt(_key, accountPassword));
+		}
+	}
+
+	internal static class RSAHelper
 	{
 		public static void FromXmlString(this RSACryptoServiceProvider rsa, string xmlString)
 		{

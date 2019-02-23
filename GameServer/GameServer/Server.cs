@@ -16,6 +16,7 @@ namespace GameServer
 		public readonly int WinScore = 5;
 		public readonly int LoseSocre = -3;
 		public readonly int MaxGameRoom = 50;
+		public readonly double UpdateInterval = 60.0;
 
 		private readonly int MaxClient = 100;
 
@@ -29,8 +30,8 @@ namespace GameServer
 		private bool _isFinish = false;
 		private int _port;
 		private IPAddress _iPAddress;
-
-		private DatabaseConnector _dbConnector;
+		
+		private DatabaseHelper _databaseHelper;
 
 		private Timer _timer;
 
@@ -46,8 +47,10 @@ namespace GameServer
 			_iPAddress = IPAddress.Parse(ip);
 
 			// TODO Need to use param
-			string[] config = new string[] { "127.0.0.1", "5432", "sean_kang", "jfigames", "train" };
-			_dbConnector = new DatabaseConnector(config);
+			string[] postgresConfig = new string[] { "127.0.0.1", "5432", "sean_kang", "jfigames", "train" };
+			string[] redisConfig = new string[] { "127.0.0.1", "6379" };
+
+			_databaseHelper = new DatabaseHelper(postgresConfig, redisConfig);
 
 			_tcpListener = new TcpListener(_iPAddress, _port);
 			_tcpListener.Start();
@@ -76,6 +79,8 @@ namespace GameServer
 
 					UpdateStatus(deltaTime);
 
+					UpdateData(deltaTime);
+
 					Thread.Sleep(1);
 				}
 
@@ -90,9 +95,9 @@ namespace GameServer
 			}
 		}
 
-		public DatabaseConnector GetDatabaseConnectior()
+		public DatabaseHelper GetDatabaseHelper()
 		{
-			return _dbConnector;
+			return _databaseHelper;
 		}
 
 		private void SetupGameRooms(int roomCnt)
@@ -201,6 +206,11 @@ namespace GameServer
 			}
 		}
 
+		private void UpdateData(double deltaTime)
+		{
+			_databaseHelper.SynchronizeDatabase(deltaTime);
+		}
+
 		private void StartGame(object game)
 		{
 			GameRoom gRoom = game as GameRoom;
@@ -217,7 +227,7 @@ namespace GameServer
 				case (int)Message.Disconnect:
 					// TODO save data to database
 					_clients.Remove(clientPlayer);
-					_dbConnector.Logout(ref clientPlayer.Account);
+					_databaseHelper.Logout(ref clientPlayer.Account);
 					clientPlayer.Disconnect();
 
 					Log.Information("總連線數:{0}", _clients.Count.ToString());
@@ -230,7 +240,7 @@ namespace GameServer
 
 					messageBuffer.Reset();
 
-					_dbConnector.Login(ref clientPlayer.Account);
+					_databaseHelper.Login(ref clientPlayer.Account);
 
 					if (clientPlayer.Account.IsOnline)
 					{
@@ -264,12 +274,12 @@ namespace GameServer
 
 			foreach (var client in _clients)
 			{
-				_dbConnector.Logout(ref client.Account);
+				_databaseHelper.Logout(ref client.Account);
 				client.Disconnect();
 			}
 
 			_clients.Clear();
-			_dbConnector.Close();
+			_databaseHelper.Close();
 
 			Log.Information("關機!!");
 			Thread.Sleep(100);

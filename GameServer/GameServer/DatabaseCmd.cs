@@ -6,7 +6,7 @@ namespace GameServer
 {
 	class DatabaseCmd
 	{
-		public static string GetConnectionConfig(string[] config)
+		public static string GetPostgresConfig(string[] config)
 		{
 			return string.Format(@"Server={0};
 									Port={1};
@@ -30,6 +30,11 @@ namespace GameServer
 			return string.Format("UPDATE player SET score={1} WHERE username='{0}';", usr, score.ToString());
 		}
 
+		public static string GetUpdateScoreCmd(string usr, string score)
+		{
+			return string.Format("UPDATE player SET score={1} WHERE username='{0}';", usr, score);
+		}
+
 		public static string GetSelectScoreCmd(string usr)
 		{
 			return string.Format("SELECT score FROM player WHERE username='{0}';", usr);
@@ -38,6 +43,13 @@ namespace GameServer
 		public static string GetSelectPasswordCmd(string usr)
 		{
 			return string.Format("SELECT password FROM player WHERE username='{0}';", usr);
+		}
+
+
+		// Redis Command Below
+		public static string GetRedisConfig(string[] config)
+		{
+			return string.Format("{0}:{1}", config[0], config[1]);
 		}
 	}
 }
