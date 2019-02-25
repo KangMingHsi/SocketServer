@@ -3,6 +3,7 @@
 using Serilog;
 using Npgsql;
 using GameNetwork;
+using System.Collections.Generic;
 
 namespace GameServer
 {
@@ -143,6 +144,39 @@ namespace GameServer
 				Log.Error(e.Message);
 				Close();
 			}
+		}
+
+		public Tuple<string, string>[] GetScorePairs()
+		{
+			List<Tuple<string, string>> tuple = new List<Tuple<string, string>>();
+
+			try
+			{
+				using (var conn = new NpgsqlConnection(_connectionString))
+				{
+					conn.Open();
+					using (var cmd = new NpgsqlCommand())
+					{
+						cmd.Connection = conn;
+						cmd.CommandText = DatabaseCmd.GetSelectScoresCmd();
+						using (var reader = cmd.ExecuteReader())
+						{
+							while (reader.Read())
+							{
+								tuple.Add(new Tuple<string, string>(reader.GetString(0), reader.GetInt32(1).ToString()));
+							}
+						}
+					}
+					conn.Close();
+				}
+			}
+			catch (Exception e)
+			{
+				Log.Error(e.Message);
+				Close();
+			}
+		
+			return tuple.ToArray();
 		}
 	}
 }

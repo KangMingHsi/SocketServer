@@ -17,47 +17,11 @@ namespace BotClient
 
 			ClientPlayer myPlayer = new ClientPlayer(args[0]);
 
-			MessageBuffer messageBuffer = new MessageBuffer(new byte[2048]);
-
-			bool GameOver = false;
-
-			while (!myPlayer.IsOnline && !GameOver)
-			{
-				Log.Information("請輸入帳號:");
-				myPlayer.Account.Username = Console.ReadLine();
-
-				Log.Information("請輸入密碼:");
-				myPlayer.Account.Password = Console.ReadLine();
-
-				myPlayer.ConnectToServer();
-
-				while (true) ;
-			}
-
-			myPlayer.Disconnect();
-
-			//ThreadPool.QueueUserWorkItem(InputHandle, null);
-
-			//RPSGame game = new RPSGame();
-			//game.InitGame(myPlayer);
+			RPSGame game = new RPSGame();
+			game.InitGame(myPlayer);
+			game.GameLoop();
 
 			Thread.Sleep(1000);
-		}
-
-
-		private static void InputHandle(object obj)
-		{
-			if (Console.KeyAvailable)
-			{
-				var key = Console.ReadKey().Key;
-				byte[] bytes = null;
-
-				switch (key)
-				{
-					default:
-						break;
-				}
-			}
 		}
 
 

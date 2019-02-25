@@ -76,6 +76,11 @@ namespace GameServer
 			}
 		}
 
+		public override bool Equals(object obj)
+		{
+			return base.Equals(obj);
+		}
+
 		private void HandleMessage(byte[] message)
 		{
 			if (message != null)

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Threading;
 
 using Serilog;
 
@@ -8,63 +8,52 @@ namespace BotClient
 {
 	class RPSGame
 	{
+		public static RPSGame Instance;
+
+		public ClientPlayer MyPlayer { get; private set; }
+		public StateMachine<RPSGame> MyStateMachine { get; private set; }
+
 		private static int[,] _winnerLookUpTable = null;
 
-		private ClientPlayer _myPlayer = null;
-		private ClientPlayer _opponentPlayer = null;
+		private bool _IsOver;
+		private int _opponentAction;
 
 		public RPSGame()
 		{
+			if (Instance != null)
+			{
+				Instance = this;
+			}
+
 			InitWinnerLookUpTable();
+
+			_IsOver = false;
 		}
 
 		public void InitGame(ClientPlayer myPlayer)
 		{
-			_myPlayer = myPlayer;
+			myPlayer.SetGame(this);
+			MyPlayer = myPlayer;
+
+			MyStateMachine = new StateMachine<RPSGame>(this);
+			MyStateMachine.SetCurrentState(new LoginState());
 		}
 
 		public void GameLoop()
 		{
-			bool isOver = false;
-
-			while (!isOver)
+			while (!_IsOver)
 			{
-				isOver = true;
+				InputHandle();
 
-				int result = GameResult(_myPlayer.GetAction(), _opponentPlayer.GetAction());
-
-				if (result == 1)
-				{
-					Log.Information("Pl win");
-				}
-				else if (result == 0)
-				{
-					Log.Information("Again!");
-					isOver = false;
-				}
-				else
-				{
-					Log.Information("P2 win");
-				}
+				MyStateMachine.Update();
 			}
 
 			GameOver();
 		}
 
-		public bool AddPlayer(ClientPlayer player)
+		public void SetOpponentAction(int action)
 		{
-			if (_opponentPlayer == null)
-			{
-				_opponentPlayer = player;
-				return true;
-			}
-
-			return false;
-		}
-
-		public bool IsReady()
-		{
-			return  (_opponentPlayer != null);
+			_opponentAction = action;
 		}
 
 		// 0 = 石頭, 1 = 剪刀, 2 = 布
@@ -92,14 +81,31 @@ namespace BotClient
 			}
 		}
 
-		public int GameResult(int leftPlayerAction, int rightPlayerAction)
+		public int GameResult()
 		{
-			return _winnerLookUpTable[leftPlayerAction, rightPlayerAction];
+			return _winnerLookUpTable[MyPlayer.GetAction(), _opponentAction];
 		}
 
 		private void GameOver()
 		{
-			_opponentPlayer = null;
+			MyPlayer.Disconnect();
+		}
+
+		private void InputHandle()
+		{
+			if (Console.KeyAvailable)
+			{
+				var line = Console.ReadLine();
+				
+				if (line.Equals("Q", StringComparison.CurrentCultureIgnoreCase))
+				{
+					_IsOver = true;
+				}
+				else
+				{
+					MyStateMachine.HandleMessage(line);
+				}
+			}
 		}
 	}
 }

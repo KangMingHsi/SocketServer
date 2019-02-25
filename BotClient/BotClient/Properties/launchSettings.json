@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BotClient": {
+      "commandName": "Project",
+      "commandLineArgs": "\"./PlayerConfig.json\""
+    }
+  }
+}

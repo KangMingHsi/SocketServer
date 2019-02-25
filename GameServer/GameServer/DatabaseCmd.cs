@@ -35,6 +35,11 @@ namespace GameServer
 			return string.Format("UPDATE player SET score={1} WHERE username=E'{0}';", usr, score);
 		}
 
+		public static string GetSelectScoresCmd()
+		{
+			return string.Format("SELECT username, score FROM player;");
+		}
+
 		public static string GetSelectScoreCmd(string usr)
 		{
 			return string.Format("SELECT score FROM player WHERE username=E'{0}';", usr);

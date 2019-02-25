@@ -64,9 +64,22 @@ namespace GameServer
 
 			while (!IsOver)
 			{
+				if (_leftPlayer == null || _rightPlayer == null)
+				{
+					Log.Information("有人斷線");
+					break;
+				}
+
 				if (_leftPlayer.HasInput() && _rightPlayer.HasInput())
 				{
-					int result = GameResult(_leftPlayer.GetAction(), _rightPlayer.GetAction());
+
+					var leftAction = _leftPlayer.GetAction();
+					var rightAction = _rightPlayer.GetAction();
+
+					int result = GameResult(leftAction, rightAction);
+
+					SendGameAction(_leftPlayer, rightAction);
+					SendGameAction(_rightPlayer, leftAction);
 
 					if (result == 0)
 					{
@@ -75,7 +88,7 @@ namespace GameServer
 					}
 					else 
 					{
-						GameOver(result);
+						UpdateScore(result);
 						IsOver = true;
 					}
 					
@@ -84,6 +97,7 @@ namespace GameServer
 				Thread.Sleep(1);
 			}
 
+			GameOver();
 		}
 
 		public bool AddPlayer(ClientPlayer player)
@@ -145,16 +159,9 @@ namespace GameServer
 			return _winnerLookUpTable[leftPlayerAction, rightPlayerAction];
 		}
 
-		private void GameOver(int result)
+		private void UpdateScore(int result)
 		{
-			Log.Information("遊戲結束");
-
-			_messageBuffer.Reset();
-			_messageBuffer.WriteInt((int)Message.GameOver);
-
-			Broadcast(_messageBuffer.Buffer);
-
-			var dbHelper = _server.GetDatabaseHelper();
+			Log.Information("計算成績");
 
 			if (result > 0)
 			{
@@ -173,11 +180,44 @@ namespace GameServer
 			Log.Information("玩家{0}得分:{2}, 玩家{1}得分:{3}", _leftPlayer.Account.Username, _rightPlayer.Account.Username
 																,_leftPlayer.Account.Score.ToString(), _rightPlayer.Account.Score.ToString());
 
+			var dbHelper = _server.GetDatabaseHelper();
+
 			dbHelper.UpdateScore(_leftPlayer.Account);
 			dbHelper.UpdateScore(_rightPlayer.Account);
+		}
 
-			_leftPlayer = null;
-			_rightPlayer = null;
+		private void SendGameResult(ClientPlayer player)
+		{
+			_messageBuffer.Reset();
+			_messageBuffer.WriteInt((int)Message.GameOver);
+			_messageBuffer.WriteInt(player.Account.Score);
+
+			player.SendGameData(_messageBuffer.Buffer.Clone() as byte[]);
+		}
+
+		private void SendGameAction(ClientPlayer player, int action)
+		{
+			_messageBuffer.Reset();
+			_messageBuffer.WriteInt((int)Message.GameAction);
+			_messageBuffer.WriteInt(action);
+
+			player.SendGameData(_messageBuffer.Buffer.Clone() as byte[]);
+		}
+
+		private void GameOver()
+		{
+			Log.Information("遊戲結束");
+			if (_leftPlayer != null)
+			{
+				SendGameResult(_leftPlayer);
+				_leftPlayer = null;
+			}
+
+			if (_rightPlayer != null)
+			{
+				SendGameResult(_rightPlayer);
+				_rightPlayer = null;
+			}
 		}
 	}
 }

@@ -20,6 +20,8 @@ namespace GameServer
 			_lastUpdateTime = 0.0;
 			_currentTime = 0.0;
 			_updateInterval = 60.0;
+
+			ResetRedis();
 		}
 
 		public void SynchronizeDatabase(double deltaTime)
@@ -68,6 +70,17 @@ namespace GameServer
 			Log.Information("關閉資料庫");
 			_postgresConnector.Close();
 			_redisConnector.Close();
+		}
+
+		// TODO postgres to redis
+		private void ResetRedis()
+		{
+			var scorePairs = _postgresConnector.GetScorePairs();
+
+			for(int i = 0; i < scorePairs.Length; ++i)
+			{
+				_redisConnector.UpdateScoreTable(scorePairs[i].Item1, scorePairs[i].Item2);
+			}
 		}
 	}
 }

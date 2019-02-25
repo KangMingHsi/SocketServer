@@ -23,6 +23,12 @@ namespace GameServer
 			_db.Wait(setTask);
 		}
 
+		public void UpdateScoreTable(string username, string score)
+		{
+			var setTask = _db.HashSetAsync("UserScoreTable", username, score);
+			_db.Wait(setTask);
+		}
+
 		public HashEntry[] GetAllScores()
 		{
 			var getTask = _db.HashGetAllAsync("UserScoreTable");

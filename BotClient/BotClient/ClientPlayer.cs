@@ -10,61 +10,64 @@ namespace BotClient
 	class ClientPlayer
 	{
 		public delegate void MessageHandler(byte[] message);
-		public bool IsOnline { get { return _network.IsConnect; } }
 
 		public ClientAccount Account;
 
+		private RPSGame _game;
 		private ClientNetwork _network;
 		private MessageBuffer _messageBuffer;
 		private Random _decisionPolicy;
+		private bool _isAI;
+		private int _action;
 
-		public ClientPlayer(string configPath)
+		public ClientPlayer(string configPath, bool isAI = false)
 		{
 			string[] config = Config.ReadPlayerConfig(configPath);
 
 			_network = new ClientNetwork(config[0], Int32.Parse(config[1]), MessageHandle);
 			_decisionPolicy = new Random();
 			_messageBuffer = new MessageBuffer(null);
+
+			_isAI = isAI;
+		}
+
+		public void SetGame(RPSGame game)
+		{
+			_game = game;
+		}
+
+		public int GetAction()
+		{
+			return _action;
+		}
+
+		public void SetAction(int action)
+		{
+			_action = action;
+		}
+
+		public void SetAction()
+		{
+			_action = _decisionPolicy.Next(0, 3);
 		}
 
 		public void ConnectToServer()
 		{
 			_network.Connect();
 
-			byte[] accountData = AccountToBytes(Account);
+			byte[] accountData = ClientAccount.ToBytes(Account);
 			SendMessageToServer(accountData);
-		}
-
-		// TODO tmp put here
-		private byte[] AccountToBytes(ClientAccount account)
-		{
-			RSAClientProvider rsa = new RSAClientProvider();
-
-			MessageBuffer messageBuffer = new MessageBuffer(new byte[2048]);
-
-			messageBuffer.WriteInt((int)Message.SignIn);
-			messageBuffer.WriteString(account.Username);
-			messageBuffer.WriteString(rsa.Encrypt(account.Password));
-
-			return messageBuffer.Buffer;
 		}
 
 		public void SendMessageToServer(byte[] message)
 		{
 			_network.Send(message);
-			Thread.Sleep(1);
 		}
 
 		public void Disconnect()
 		{
 			_network.Close();
-			Thread.Sleep(1);
 			_network.Stop();
-		}
-
-		public int GetAction()
-		{
-			return _decisionPolicy.Next(0,3);
 		}
 
 		private void MessageHandle(byte[] message)
@@ -78,40 +81,32 @@ namespace BotClient
 					case (int)Message.Disconnect:
 						_network.Stop();
 						break;
-					case (int)Message.SignInSuccess:
-						Log.Information("連線成功!");
-						break;
 					case (int)Message.SignInFail:
 						Log.Information("連線失敗!");
 						_network.Stop();
 						break;
-
+					case (int)Message.SignInSuccess:
+						Account.IsOnline = true;
+						Account.Score = _messageBuffer.ReadInt();
+						break;
 					case (int)Message.MatchGame:
-						// TODO match data...
-						IsGaming = true;
-
-						Log.Information("遊戲開始");
-						_messageBuffer.Reset(new byte[8]);
-
-						MyAction = GetAction();
-						_messageBuffer.WriteInt((int)Message.GameAction);
-						_messageBuffer.WriteInt(MyAction);
-						_network.Send(_messageBuffer.Buffer.Clone() as byte[]);
-
+						if (Account.IsMatch)
+						{
+							Log.Information("平手!重新輸入");
+						}
+						else
+						{
+							Account.IsMatch = true;
+						}
 						break;
 					case (int)Message.GameAction:
 						int opponentAction = _messageBuffer.ReadInt();
-						bool win = Game.GameResult(MyAction, opponentAction) > 0;
-
-						Log.Information("{0}", (win ? "獲勝" : "輸掉"));
+						_game.SetOpponentAction(opponentAction);
 						break;
 					case (int)Message.GameOver:
 						Log.Information("結束!");
-						IsGaming = false;
-						break;
-					case (int)Message.NoMeaning:
-
-						Log.Information("Ack");
+						Account.Score = _messageBuffer.ReadInt();
+						Account.IsMatch = false;
 						break;
 					default:
 						break;
@@ -121,16 +116,6 @@ namespace BotClient
 			{
 				// write task error
 			}
-		}
-
-		// TODO test
-		public RPSGame Game;
-		public bool IsGaming;
-		int MyAction;
-		public void TestGame()
-		{
-			IsGaming = false;
-			Game = new RPSGame();
 		}
 	}
 }

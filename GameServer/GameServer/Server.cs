@@ -226,6 +226,8 @@ namespace GameServer
 					if (clientPlayer.Account.IsOnline)
 					{
 						_databaseHelper.Logout(ref clientPlayer.Account);
+
+						HandleIfInGameOrPending(clientPlayer);
 					}
 
 					clientPlayer.Disconnect();
@@ -246,6 +248,7 @@ namespace GameServer
 					if (clientPlayer.Account.IsOnline)
 					{
 						messageBuffer.WriteInt((int)Message.SignInSuccess);
+						messageBuffer.WriteInt(clientPlayer.Account.Score);
 					}
 					else
 					{
@@ -280,6 +283,10 @@ namespace GameServer
 			}
 
 			_clients.Clear();
+			_availableRooms.Clear();
+			_pendingPlayers.Clear();
+			_gamingRooms.Clear();
+
 			_databaseHelper.Close();
 
 			Log.Information("關機!!");
@@ -297,6 +304,19 @@ namespace GameServer
 		private void SendMessage(ClientPlayer client, byte[] message)
 		{
 			client.SendGameData(message);
+		}
+
+		private void HandleIfInGameOrPending(ClientPlayer player)
+		{
+			if (_pendingPlayers.Contains(player))
+			{
+				_pendingPlayers.Remove(player);
+			}
+
+			if (player.Account.IsMatch)
+			{
+
+			}
 		}
 	}
 }
