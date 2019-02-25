@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading;
+﻿using System.Threading;
 
 using GameNetwork;
 using Serilog;
@@ -55,12 +53,7 @@ namespace GameServer
 		{
 			IsOver = false;
 
-			_messageBuffer.Reset();
-			_messageBuffer.WriteInt((int)Message.MatchGame);
-
-			Broadcast(_messageBuffer.Buffer);
-
-			Log.Information("遊戲開始");
+			GameInit();
 
 			while (!IsOver)
 			{
@@ -72,7 +65,6 @@ namespace GameServer
 
 				if (_leftPlayer.HasInput() && _rightPlayer.HasInput())
 				{
-
 					var leftAction = _leftPlayer.GetAction();
 					var rightAction = _rightPlayer.GetAction();
 
@@ -84,7 +76,8 @@ namespace GameServer
 					if (result == 0)
 					{
 						Log.Information("平手!");
-						Broadcast(_messageBuffer.Buffer);
+						IsOver = true; // for test
+						//Broadcast(_messageBuffer.Buffer);
 					}
 					else 
 					{
@@ -118,9 +111,16 @@ namespace GameServer
 			return true;
 		}
 
-		public bool IsReady()
+		private void GameInit()
 		{
-			return (_leftPlayer != null) && (_rightPlayer != null);
+			_messageBuffer.Reset();
+			_messageBuffer.WriteInt((int)Message.MatchGame);
+			Broadcast(_messageBuffer.Buffer);
+
+			_leftPlayer.Account.IsMatch = true;
+			_rightPlayer.Account.IsMatch = true;
+
+			Log.Information("遊戲開始");
 		}
 
 		private void Broadcast(byte[] message)
@@ -165,15 +165,15 @@ namespace GameServer
 
 			if (result > 0)
 			{
-				_leftPlayer.Account.Score += _server.WinScore;
-				_rightPlayer.Account.Score += _server.LoseSocre;
+				_leftPlayer.Account.Score += Constant.WinScore;
+				_rightPlayer.Account.Score += Constant.LoseSocre;
 
 				Log.Information("玩家{0}獲勝", _leftPlayer.Account.Username);
 			}
 			else
 			{
-				_rightPlayer.Account.Score += _server.WinScore;
-				_leftPlayer.Account.Score += _server.LoseSocre;
+				_rightPlayer.Account.Score += Constant.WinScore;
+				_leftPlayer.Account.Score += Constant.LoseSocre;
 				Log.Information("玩家{0}獲勝", _rightPlayer.Account.Username);
 			}
 

@@ -16,19 +16,17 @@ namespace BotClient
 		private RPSGame _game;
 		private ClientNetwork _network;
 		private MessageBuffer _messageBuffer;
+
 		private Random _decisionPolicy;
-		private bool _isAI;
 		private int _action;
 
-		public ClientPlayer(string configPath, bool isAI = false)
+		public ClientPlayer(string configPath)
 		{
 			string[] config = Config.ReadPlayerConfig(configPath);
 
 			_network = new ClientNetwork(config[0], Int32.Parse(config[1]), MessageHandle);
 			_decisionPolicy = new Random();
 			_messageBuffer = new MessageBuffer(null);
-
-			_isAI = isAI;
 		}
 
 		public void SetGame(RPSGame game)
@@ -67,6 +65,7 @@ namespace BotClient
 		public void Disconnect()
 		{
 			_network.Close();
+			Thread.Sleep(3);
 			_network.Stop();
 		}
 
@@ -104,7 +103,6 @@ namespace BotClient
 						_game.SetOpponentAction(opponentAction);
 						break;
 					case (int)Message.GameOver:
-						Log.Information("結束!");
 						Account.Score = _messageBuffer.ReadInt();
 						Account.IsMatch = false;
 						break;

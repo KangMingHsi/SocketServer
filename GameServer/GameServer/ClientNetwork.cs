@@ -19,7 +19,7 @@ namespace GameServer
 
 		private double _lastUpdateTime = 0.0;
 		private double _currentTime = 0.0;
-		private readonly double _updateInterval = 1.0;
+		private double _updateInterval;
 
 		public ClientNetwork(TcpClient client, ClientPlayer.ClientMessageHandler handler)
 		{
@@ -32,6 +32,7 @@ namespace GameServer
 			ThreadPool.QueueUserWorkItem(StartReadTask, null);
 
 			IsConnect = true;
+			_updateInterval = Constant.ClientNetworkUpdateInterval;
 		}
 
 		public void Stop()

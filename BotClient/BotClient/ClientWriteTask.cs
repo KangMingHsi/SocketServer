@@ -52,7 +52,6 @@ namespace BotClient
 			{
 				_stream.EndWrite(r);
 				IsComplete = true;
-
 			}
 			catch
 			{

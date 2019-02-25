@@ -33,7 +33,7 @@ namespace BotClient
 			}
 			else
 			{
-				Log.Information("斷線");
+				Log.Information("平手");
 			}
 
 			Log.Information("遊戲結束~目前得分{0}", game.MyPlayer.Account.Score.ToString());

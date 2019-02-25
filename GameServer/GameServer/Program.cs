@@ -18,8 +18,5 @@ namespace GameServer
 
 			Thread.Sleep(2000);
 		}
-
-		
 	}
-	
 }

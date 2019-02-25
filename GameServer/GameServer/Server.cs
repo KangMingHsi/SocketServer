@@ -13,18 +13,11 @@ namespace GameServer
 	{
 		public delegate void ServerMessageHandler(ClientPlayer clientPlayer, byte[] message);
 
-		public readonly int WinScore = 5;
-		public readonly int LoseSocre = -3;
-		public readonly int MaxGameRoom = 50;
-
-		private readonly int MaxClient = 100;
-
 		private TcpListener _tcpListener;
 		private List<ClientPlayer> _clients;
-
-		private List<GameRoom> _gamingRooms;
-		private List<GameRoom> _availableRooms;
 		private List<ClientPlayer> _pendingPlayers;
+
+		private RoomManager _roomManager;
 
 		private bool _isFinish = false;
 		private int _port;
@@ -49,28 +42,27 @@ namespace GameServer
 			_tcpListener.Start();
 
 			_databaseHelper = new DatabaseHelper(postgresConfig, redisConfig);
+			_roomManager = new RoomManager();
 
 			Log.Information("伺服器啟動在Port:{0}", _port.ToString());
 
-			ThreadPool.SetMinThreads(MaxClient * 3, MaxClient * 3);
+			ThreadPool.SetMinThreads(Constant.MaxClient * 3, Constant.MaxClient * 3);
 		}
 
 		public void Run()
 		{
 			try
 			{
-				SetupGame(MaxGameRoom);
+				SetupGame(Constant.MaxGameRoom);
 				_timer.Start();
 
 				while (!_isFinish)
 				{
-					_timer.Update();
-
-					ServerCommandHandle();
+					CommandHandle();
 					ListenToClient();
 
-					CheckGameIsOver();
-					MatchPendingPlayers();
+					_timer.Update();
+					_roomManager.Update(_pendingPlayers);
 
 					UpdateStatus(_timer.DeltaTime);
 					UpdateData(_timer.DeltaTime);
@@ -101,13 +93,8 @@ namespace GameServer
 			_timer = new Timer();
 			_clients = new List<ClientPlayer>();
 			_pendingPlayers = new List<ClientPlayer>();
-			_gamingRooms = new List<GameRoom>();
-			_availableRooms = new List<GameRoom>();
 
-			for (int room = 0; room < roomCnt; ++room)
-			{
-				_availableRooms.Add(new GameRoom(this, room)); 
-			}
+			_roomManager.Init(this);
 		}
 
 		private void ListenToClient()
@@ -121,7 +108,7 @@ namespace GameServer
 		}
 
 		// Flexiable To Add New Things
-		private void ServerCommandHandle()
+		private void CommandHandle()
 		{
 			if (Console.KeyAvailable)
 			{
@@ -146,54 +133,6 @@ namespace GameServer
 			}
 		}
 
-		private void CheckGameIsOver()
-		{
-			for (int i = _gamingRooms.Count-1; i >= 0; --i)
-			{
-				if(_gamingRooms[i].IsOver) 
-				{
-					Log.Information("回收房間");
-					_availableRooms.Add(_gamingRooms[i]);
-					_gamingRooms.RemoveAt(i);
-				}
-			}
-		}
-
-		private void MatchPendingPlayers()
-		{
-			if (_availableRooms.Count > 0 && _pendingPlayers.Count > 1)
-			{
-				Log.Information("配對玩家");
-				var matching = new PlayerMatching();
-				_pendingPlayers.Sort(matching);
-
-				int idxOffset = 0;
-
-				do
-				{
-					if (Math.Abs(_pendingPlayers[idxOffset].Account.Score - _pendingPlayers[idxOffset + 1].Account.Score) >= 10)
-					{
-						++idxOffset;
-					}
-					else
-					{
-						Log.Information("配對一組成功");
-						GameRoom room = _availableRooms[0];
-
-						room.AddPlayer(_pendingPlayers[idxOffset]);
-						_pendingPlayers.RemoveAt(idxOffset);
-						room.AddPlayer(_pendingPlayers[idxOffset]);
-						_pendingPlayers.RemoveAt(idxOffset);
-						ThreadPool.QueueUserWorkItem(StartGame, room);
-
-						_gamingRooms.Add(room);
-						_availableRooms.RemoveAt(0);
-					}
-				}
-				while (_availableRooms.Count > 0 && (_pendingPlayers.Count - idxOffset) > 1);
-			}
-		}
-
 		private void UpdateStatus(double deltaTime)
 		{
 			for (int idx = 0; idx < _clients.Count; ++idx)
@@ -207,12 +146,6 @@ namespace GameServer
 			_databaseHelper.SynchronizeDatabase(deltaTime);
 		}
 
-		private void StartGame(object game)
-		{
-			GameRoom gRoom = game as GameRoom;
-			gRoom.GameStart();
-		}
-
 		private void MessageHandle(ClientPlayer clientPlayer, byte[] message)
 		{
 			MessageBuffer messageBuffer = new MessageBuffer(message);
@@ -221,7 +154,6 @@ namespace GameServer
 			switch (messageType)
 			{
 				case (int)Message.Disconnect:
-					// TODO save data to database
 
 					if (clientPlayer.Account.IsOnline)
 					{
@@ -259,11 +191,7 @@ namespace GameServer
 					break;
 
 				case (int)Message.MatchGame:
-
-					// TODO
-					// Add to pend list
 					_pendingPlayers.Add(clientPlayer);
-
 					break;
 				default:
 					Log.Information(messageType.ToString());
@@ -276,17 +204,16 @@ namespace GameServer
 		{
 			_tcpListener.Stop();
 
-			foreach (var client in _clients)
+			for (int i = 0; i < _clients.Count; ++i)
 			{
-				_databaseHelper.Logout(ref client.Account);
-				client.Disconnect();
+				_databaseHelper.Logout(ref _clients[i].Account);
+				_clients[i].Disconnect();
 			}
 
 			_clients.Clear();
-			_availableRooms.Clear();
 			_pendingPlayers.Clear();
-			_gamingRooms.Clear();
 
+			_roomManager.Clear();
 			_databaseHelper.Close();
 
 			Log.Information("關機!!");

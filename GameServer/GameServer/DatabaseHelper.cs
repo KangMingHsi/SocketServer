@@ -19,7 +19,7 @@ namespace GameServer
 
 			_lastUpdateTime = 0.0;
 			_currentTime = 0.0;
-			_updateInterval = 60.0;
+			_updateInterval = Constant.DBUpdateInterval;
 
 			ResetRedis();
 		}

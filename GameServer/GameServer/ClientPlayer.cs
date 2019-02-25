@@ -71,7 +71,7 @@ namespace GameServer
 				else
 				{
 					Log.Information("斷線");
-					_serverMessageHandler(this, BitConverter.GetBytes((int)Message.Disconnect));
+					HandleMessage(BitConverter.GetBytes((int)Message.Disconnect));
 				}
 			}
 		}
