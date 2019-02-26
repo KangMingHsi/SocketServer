@@ -49,8 +49,8 @@ namespace BotClient
 
 			for (int i = 0; i < clientNum; ++i)
 			{
-				games[i].MyStateMachine.HandleMessage("player" + i.ToString());
-				games[i].MyStateMachine.HandleMessage("123456");
+				clients[i].MyStateMachine.HandleMessage(new LocalMessagePackage("player" + i.ToString()));
+				clients[i].MyStateMachine.HandleMessage(new LocalMessagePackage("123456"));
 				Thread.Sleep(100);
 			}
 
@@ -61,7 +61,7 @@ namespace BotClient
 			{
 				for (int i = 0; i < clientNum; ++i)
 				{
-					games[i].MyStateMachine.HandleMessage("s");
+					clients[i].MyStateMachine.HandleMessage(new LocalMessagePackage("s"));
 					Thread.Sleep(100);
 				}
 
@@ -70,7 +70,7 @@ namespace BotClient
 				for (int i = 0; i < clientNum; ++i)
 				{
 					clients[i].SetAction();
-					games[i].MyStateMachine.HandleMessage(clients[i].GetAction().ToString());
+					clients[i].MyStateMachine.HandleMessage(new LocalMessagePackage(clients[i].GetAction().ToString()));
 					Thread.Sleep(100);
 				}
 				Thread.Sleep(3000);

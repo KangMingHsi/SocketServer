@@ -4,28 +4,28 @@ using Serilog;
 
 namespace BotClient
 {
-	class ReadyState : State<RPSGame>
+	class ReadyState : State<ClientPlayer>
 	{
-		public void Enter(RPSGame game)
+		public void Enter(ClientPlayer player)
 		{
 			Log.Information("等待列隊中");
 		}
 
-		public void Execute(RPSGame game)
+		public void Execute(ClientPlayer player)
 		{
-			if (game.MyPlayer.Account.IsMatch)
+			if (player.Account.IsMatch)
 			{
-				game.MyStateMachine.ChangeState(new PlayState());
+				player.MyStateMachine.ChangeState(new PlayState());
 			}
 		}
 
-		public void Exit(RPSGame game)
+		public void Exit(ClientPlayer player)
 		{
 			Log.Information("配對成功");
 			Log.Information("開始遊戲");
 		}
 
-		public bool HandleMessage(RPSGame game, string msg)
+		public bool HandleMessage(ClientPlayer player, LocalMessagePackage msg)
 		{
 			return false;
 		}

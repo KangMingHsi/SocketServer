@@ -9,10 +9,8 @@ namespace BotClient
 	class RPSGame
 	{
 		public ClientPlayer MyPlayer { get; private set; }
-		public StateMachine<RPSGame> MyStateMachine { get; private set; }
 
 		private static int[,] _winnerLookUpTable = null;
-
 		private bool _IsOver;
 		private int _opponentAction;
 
@@ -24,11 +22,8 @@ namespace BotClient
 
 		public void InitGame(ClientPlayer myPlayer)
 		{
-			myPlayer.SetGame(this);
+			myPlayer.Game = this;
 			MyPlayer = myPlayer;
-
-			MyStateMachine = new StateMachine<RPSGame>(this);
-			MyStateMachine.SetCurrentState(new LoginState());
 		}
 
 		public void GameLoop()
@@ -36,9 +31,7 @@ namespace BotClient
 			while (!_IsOver)
 			{
 				//InputHandle();
-
-				MyStateMachine.Update();
-
+				MyPlayer.Update();
 				Thread.Sleep(1);
 			}
 
@@ -78,28 +71,27 @@ namespace BotClient
 			return _winnerLookUpTable[MyPlayer.GetAction(), _opponentAction];
 		}
 
-		private void GameOver()
-		{
-			MyPlayer.Disconnect();
-		}
-
 		private void InputHandle()
 		{
 			if (Console.KeyAvailable)
 			{
 				var line = Console.ReadLine();
-				
+
 				if (line.Equals("Q", StringComparison.CurrentCultureIgnoreCase))
 				{
-					_IsOver = true;
+					TestOver();
 				}
 				else
 				{
-					MyStateMachine.HandleMessage(line);
+					MyPlayer.MyStateMachine.HandleMessage(new LocalMessagePackage(line));
 				}
 			}
 		}
 
+		private void GameOver()
+		{
+			MyPlayer.Disconnect();
+		}
 
 		public void TestOver()
 		{

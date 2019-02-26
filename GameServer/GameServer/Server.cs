@@ -18,16 +18,13 @@ namespace GameServer
 		private List<ClientPlayer> _pendingPlayers;
 
 		private RoomManager _roomManager;
+		private DatabaseHelper _databaseHelper;
+		private Timer _timer;
 
 		private bool _isFinish = false;
 		private int _port;
 		private IPAddress _iPAddress;
 		
-		private DatabaseHelper _databaseHelper;
-
-		private Timer _timer;
-
-		// TODO create new class to handle byte[] transfer between message
 
 		public Server(string serverConfigPath, string postgresConfigPath, string redisConfigPath)
 		{
@@ -53,8 +50,7 @@ namespace GameServer
 		{
 			try
 			{
-				SetupGame(Constant.MaxGameRoom);
-				_timer.Start();
+				SetupGame();
 
 				while (!_isFinish)
 				{
@@ -86,11 +82,13 @@ namespace GameServer
 			return _databaseHelper;
 		}
 
-		private void SetupGame(int roomCnt)
+		private void SetupGame()
 		{
 			Log.Information("初始化遊戲服務");
 
 			_timer = new Timer();
+			_timer.Start();
+
 			_clients = new List<ClientPlayer>();
 			_pendingPlayers = new List<ClientPlayer>();
 
@@ -173,9 +171,8 @@ namespace GameServer
 					clientPlayer.Account.Username = messageBuffer.ReadString();
 					clientPlayer.Account.Password = messageBuffer.ReadString();
 
-					messageBuffer.Reset();
-
 					_databaseHelper.Login(ref clientPlayer.Account);
+					messageBuffer.Reset();
 
 					if (clientPlayer.Account.IsOnline)
 					{

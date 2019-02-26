@@ -9,6 +9,6 @@ namespace BotClient
 		void Enter(T t);
 		void Execute(T t);
 		void Exit(T t);
-		bool HandleMessage(T t, string msg);
+		bool HandleMessage(T t, LocalMessagePackage msg);
 	}
 }

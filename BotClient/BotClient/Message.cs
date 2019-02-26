@@ -19,6 +19,7 @@ namespace GameNetwork
 
 		UpdateGameData,
 
+		Local,
 		NoMeaning
 	}
 }

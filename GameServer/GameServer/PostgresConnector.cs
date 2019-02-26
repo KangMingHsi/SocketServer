@@ -88,6 +88,7 @@ namespace GameServer
 						cmd.ExecuteNonQuery();
 
 						account.IsOnline = false;
+						account.IsMatch = false;
 					}
 					conn.Close();
 				}

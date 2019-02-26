@@ -28,9 +28,9 @@ namespace GameServer
 			var msgHandle = new ClientPlayer.ClientMessageHandler(handler);
 			_readTask = new ClientReadTask(this, msgHandle);
 			_writeTask = new ClientWriteTask(this, msgHandle);
-
+			
 			ThreadPool.QueueUserWorkItem(StartReadTask, null);
-
+			
 			IsConnect = true;
 			_updateInterval = Constant.ClientNetworkUpdateInterval;
 		}

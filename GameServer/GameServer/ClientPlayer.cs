@@ -12,21 +12,23 @@ namespace GameServer
 		public delegate void ClientMessageHandler(byte[] message);
 
 		public ClientAccount Account;
-		private Server.ServerMessageHandler _serverMessageHandler;
+
+		private readonly Server.ServerMessageHandler _serverMessageHandler;
 
 		private ClientNetwork _network;
-		private List<int> _actions;
-
 		private MessageBuffer _messageBuffer;
+		private GameRoom _gameRoom;
+
+		private List<int> _actions;
 
 		public ClientPlayer(TcpClient client, Server.ServerMessageHandler handler)
 		{
 			_serverMessageHandler = new Server.ServerMessageHandler(handler);
 
 			_network = new ClientNetwork(client, HandleMessage);
-			_actions = new List<int>();
-
 			_messageBuffer = new MessageBuffer(null);
+			_gameRoom = null;
+			_actions = new List<int>();
 		}
 
 		public bool HasInput()
@@ -47,6 +49,16 @@ namespace GameServer
 			{
 				_network.Send(message);
 			}
+		}
+
+		public void SetGameRoom(GameRoom gameRoom)
+		{
+			_gameRoom = gameRoom;
+		}
+
+		public void QuitGame()
+		{
+			_gameRoom = null;
 		}
 
 		public void Disconnect()
@@ -94,7 +106,6 @@ namespace GameServer
 						int action = _messageBuffer.ReadInt();
 						_actions.Add(action);
 						break;
-
 					default:
 						_serverMessageHandler(this, message);
 						break;

@@ -9,12 +9,11 @@ namespace GameServer
 	{
 		public bool IsOver { get; private set; } = true;
 
-		private static int[,] _winnerLookUpTable = null;
+		private static int[,] _winnerLookUpTable;
 
 		private Server _server;
 		private ClientPlayer _leftPlayer = null;
 		private ClientPlayer _rightPlayer = null;
-
 		private MessageBuffer _messageBuffer;
 
 		private int _roomId;
@@ -25,7 +24,6 @@ namespace GameServer
 
 			_server = server;
 			_messageBuffer = new MessageBuffer(new byte[8]);
-
 			_roomId = id;
 		}
 
@@ -167,7 +165,6 @@ namespace GameServer
 			{
 				_leftPlayer.Account.Score += Constant.WinScore;
 				_rightPlayer.Account.Score += Constant.LoseSocre;
-
 				Log.Information("玩家{0}獲勝", _leftPlayer.Account.Username);
 			}
 			else

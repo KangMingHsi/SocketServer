@@ -5,24 +5,24 @@ using GameNetwork;
 
 namespace BotClient
 {
-	class PlayState : State<RPSGame>
+	class PlayState : State<ClientPlayer>
 	{
-		public void Enter(RPSGame game)
+		public void Enter(ClientPlayer player)
 		{
 			Log.Information("輸入0=石頭，1=剪刀，2=布");
 		}
 
-		public void Execute(RPSGame game)
+		public void Execute(ClientPlayer player)
 		{
-			if (!game.MyPlayer.Account.IsMatch)
+			if (!player.Account.IsMatch)
 			{
-				game.MyStateMachine.ChangeState(new WaitState());
+				player.MyStateMachine.ChangeState(new WaitState());
 			}
 		}
 
-		public void Exit(RPSGame game)
+		public void Exit(ClientPlayer player)
 		{
-			int result = game.GameResult();
+			int result = player.Game.GameResult();
 			if (result > 0)
 			{
 				Log.Information("獲勝");
@@ -36,35 +36,34 @@ namespace BotClient
 				Log.Information("平手");
 			}
 
-			Log.Information("遊戲結束~目前得分{0}", game.MyPlayer.Account.Score.ToString());
+			Log.Information("遊戲結束~目前得分{0}", player.Account.Score.ToString());
 			
 		}
 
-		public bool HandleMessage(RPSGame game, string msg)
+		public bool HandleMessage(ClientPlayer player, LocalMessagePackage msg)
 		{
-			MessageBuffer messageBuffer = new MessageBuffer(new byte[8]);
-			int action;
-			if (Int32.TryParse(msg, out action))
+			if (msg.IsLocal)
 			{
-				if (action > 2 || action < 0)
+				MessageBuffer messageBuffer = new MessageBuffer(new byte[8]);
+				int action;
+				if (Int32.TryParse(msg.LocalMessage, out action))
 				{
-					Log.Information("輸入錯誤，請重新輸入");
-					return false;
+					if (action > 2 || action < 0)
+					{
+						Log.Information("輸入錯誤，請重新輸入");
+						return false;
+					}
+
+					player.SetAction(action);
+
+					messageBuffer.WriteInt((int)Message.GameAction);
+					messageBuffer.WriteInt(action);
+					player.SendMessageToServer(messageBuffer.Buffer.Clone() as byte[]);
+
+					return true;
 				}
-
-				game.MyPlayer.SetAction(action);
-
-				messageBuffer.WriteInt((int)Message.GameAction);
-				messageBuffer.WriteInt(action);
-				game.MyPlayer.SendMessageToServer(messageBuffer.Buffer.Clone() as byte[]);
-
-				return true;
+				
 			}
-			else
-			{
-				game.MyStateMachine.ChangeState(new WaitState());
-			}
-
 			return false;
 		}
 	}

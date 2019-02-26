@@ -4,45 +4,50 @@ using Serilog;
 
 namespace BotClient
 {
-	class LoginState : State<RPSGame>
+	class LoginState : State<ClientPlayer>
 	{
-		public void Enter(RPSGame game)
+		public void Enter(ClientPlayer player)
 		{
-			
+			Log.Information("請輸入帳號密碼");
 		}
 
-		public void Execute(RPSGame game)
+		public void Execute(ClientPlayer player)
 		{
-			if (game.MyPlayer.Account.IsOnline)
+			if (player.Account.IsOnline)
 			{
-				game.MyStateMachine.ChangeState(new WaitState());
+				player.MyStateMachine.ChangeState(new WaitState());
 			}
 		}
 
-		public void Exit(RPSGame game)
+		public void Exit(ClientPlayer player)
 		{
 			Log.Information("登入成功");
 		}
 
-		public bool HandleMessage(RPSGame game, string msg)
+		public bool HandleMessage(ClientPlayer player, LocalMessagePackage msg)
 		{
-			if (game.MyPlayer.Account.Username != null && game.MyPlayer.Account.Password != null)
+			if (msg.IsLocal)
 			{
-				game.MyPlayer.Account.Username = null;
-				game.MyPlayer.Account.Password = null;
+				if (player.Account.Username != null && player.Account.Password != null)
+				{
+					player.Account.Username = null;
+					player.Account.Password = null;
+				}
+
+				if (player.Account.Username == null)
+				{
+					player.Account.Username = msg.LocalMessage;
+				}
+				else
+				{
+					player.Account.Password = msg.LocalMessage;
+					player.ConnectToServer();
+				}
+
+				return true;
 			}
 
-			if (game.MyPlayer.Account.Username == null)
-			{
-				game.MyPlayer.Account.Username = msg;
-			}
-			else
-			{
-				game.MyPlayer.Account.Password = msg;
-				game.MyPlayer.ConnectToServer();
-			}
-
-			return true;
+			return false;
 		}
 	}
 }

@@ -9,6 +9,7 @@ namespace GameServer
 		private double _lastUpdateTime;
 		private double _updateInterval;
 		private double _currentTime;
+
 		private PostgresConnector _postgresConnector;
 		private RedisConnector _redisConnector;
 

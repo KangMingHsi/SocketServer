@@ -29,7 +29,7 @@ namespace BotClient
 			if (_currentState != null) _currentState.Execute(_owner);
 		}
 
-		public bool HandleMessage(string msg)
+		public bool HandleMessage(LocalMessagePackage msg)
 		{
 		  //first see if the current state is valid and that it can handle
 		  //the message

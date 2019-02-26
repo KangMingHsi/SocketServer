@@ -16,7 +16,6 @@ namespace GameServer
 			_db = _conn.GetDatabase();
 		}
 
-		// TODO check wait is necessary or not
 		public void UpdateScoreTable(ClientAccount account)
 		{
 			var setTask = _db.HashSetAsync("UserScoreTable", account.Username, account.Score.ToString());

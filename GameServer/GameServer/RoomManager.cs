@@ -86,9 +86,9 @@ namespace GameServer
 					Thread.Sleep(1);
 				}
 				while (_availableRooms.Count > 0 && (pendingPlayers.Count - idxOffset) > 1);
-			}
 
-			//pendingPlayers.Clear();
+				//pendingPlayers.Clear();
+			}
 		}
 
 		private void StartGame(object room)
